@@ -12,6 +12,7 @@ const usersRoutes     = require('./routes/users.routes');
 const mechanicsRoutes = require('./routes/mechanics.routes');
 const jobsRoutes      = require('./routes/jobs.routes');
 const bidsRoutes      = require('./routes/bids.routes');
+const adminRoutes     = require('./routes/admin.routes');
 const { initSocket }  = require('./socket/socket');
 const errorHandler    = require('./middleware/error.middleware');
 
@@ -32,6 +33,7 @@ app.use('/api/users',     usersRoutes);
 app.use('/api/mechanics', mechanicsRoutes);
 app.use('/api/jobs',      jobsRoutes);
 app.use('/api/bids',      bidsRoutes);
+app.use('/api/admin',     adminRoutes);
 
 // ── Global error handler (must be last) ──────────────────────────────────────
 

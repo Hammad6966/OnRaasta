@@ -2,12 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../core/widgets/onraasta_button.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/socket_service.dart';
+
+// ── Dark map style ─────────────────────────────────────────────────────────────
+
+const _darkMapStyle = '''[
+  {"elementType":"geometry","stylers":[{"color":"#050A14"}]},
+  {"elementType":"labels.text.fill","stylers":[{"color":"#94A3B8"}]},
+  {"elementType":"labels.text.stroke","stylers":[{"color":"#050A14"}]},
+  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#0F2040"}]},
+  {"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#1E3A5F"}]},
+  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#0D1B2E"}]},
+  {"featureType":"poi","stylers":[{"visibility":"off"}]},
+  {"featureType":"transit","stylers":[{"visibility":"off"}]}
+]''';
 
 // ── Job request model ─────────────────────────────────────────────────────────
 
@@ -17,6 +30,7 @@ class JobRequest {
   final double distance;
   final DateTime createdAt;
   final Map<String, dynamic>? aiDiagnosis;
+  bool isNew;
 
   JobRequest({
     required this.jobId,
@@ -24,6 +38,7 @@ class JobRequest {
     required this.distance,
     required this.createdAt,
     this.aiDiagnosis,
+    this.isNew = false,
   });
 
   factory JobRequest.fromJson(Map<String, dynamic> json) {
@@ -36,6 +51,7 @@ class JobRequest {
           ? DateTime.tryParse(createdAtRaw) ?? DateTime.now()
           : DateTime.now(),
       aiDiagnosis: json['aiDiagnosis'] as Map<String, dynamic>?,
+      isNew:       true,
     );
   }
 
@@ -72,14 +88,17 @@ class MechanicHomeScreen extends StatefulWidget {
 class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
   bool _isOnline = false;
   String _mechanicName = '';
-  String _mechanicId = '';
-  final List<JobRequest> _jobs = [];
-  int _selectedTab = 0;
-  int _totalJobs = 0;
-  double _rating = 0.0;
-  int _earnings = 0;
+  String _mechanicId   = '';
+  int    _totalJobs    = 0;
+  double _rating       = 0.0;
+  int    _earnings     = 0;
 
-  static const _tabLabels = ['New Requests', 'Active Jobs'];
+  final List<JobRequest> _jobs = [];
+
+  GoogleMapController? _mapController;
+  LatLng? _currentLocation;
+
+  static const LatLng _fallback = LatLng(33.6844, 73.0479); // Islamabad
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -88,23 +107,45 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
     super.initState();
     _loadProfile();
     _connectSocket();
+    _initLocation();
   }
 
   @override
   void dispose() {
+    _mapController?.dispose();
     SocketService.instance.off('job:new_request');
     super.dispose();
+  }
+
+  // ── Location ──────────────────────────────────────────────────────────────────
+
+  Future<void> _initLocation() async {
+    try {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) return;
+
+      final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      final loc = LatLng(pos.latitude, pos.longitude);
+      if (!mounted) return;
+      setState(() => _currentLocation = loc);
+      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(loc, 14));
+    } catch (_) {}
   }
 
   // ── Profile ───────────────────────────────────────────────────────────────────
 
   Future<void> _loadProfile() async {
     try {
-      final res = await ApiService.instance.dio.get('/mechanics/profile');
+      final res  = await ApiService.instance.dio.get('/mechanics/profile');
       final data = res.data['data'] as Map<String, dynamic>;
       final user = data['userId'] as Map<String, dynamic>?;
       setState(() {
-        _mechanicId   = data['_id']      as String? ?? '';
+        _mechanicId   = data['_id']       as String? ?? '';
         _totalJobs    = (data['totalJobs'] as num?)?.toInt()    ?? 0;
         _rating       = (data['rating']    as num?)?.toDouble() ?? 0.0;
         _earnings     = (data['earnings']  as num?)?.toInt()    ?? 0;
@@ -117,16 +158,19 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
 
   Future<void> _connectSocket() async {
     final token = await AuthService.instance.getAccessToken();
-    if (token != null) {
-      SocketService.instance.connect(token);
-    }
+    if (token != null) SocketService.instance.connect(token);
 
     SocketService.instance.on('job:new_request', (data) {
       if (!mounted) return;
       final raw = data is Map
           ? Map<String, dynamic>.from(data as Map)
           : <String, dynamic>{};
-      setState(() => _jobs.insert(0, JobRequest.fromJson(raw)));
+      final job = JobRequest.fromJson(raw);
+      setState(() => _jobs.insert(0, job));
+      // Clear NEW badge after 30s
+      Future.delayed(const Duration(seconds: 30), () {
+        if (mounted) setState(() => job.isNew = false);
+      });
     });
   }
 
@@ -137,25 +181,32 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
     setState(() => _isOnline = goingOnline);
 
     if (goingOnline) {
-      double lat = 0.0, lng = 0.0;
-      try {
-        LocationPermission perm = await Geolocator.checkPermission();
-        if (perm == LocationPermission.denied) {
-          perm = await Geolocator.requestPermission();
-        }
-        if (perm != LocationPermission.denied &&
-            perm != LocationPermission.deniedForever) {
-          final pos = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high);
-          lat = pos.latitude;
-          lng = pos.longitude;
-        }
-      } catch (_) {}
+      double lat = _currentLocation?.latitude  ?? 0.0;
+      double lng = _currentLocation?.longitude ?? 0.0;
+
+      if (lat == 0.0) {
+        try {
+          LocationPermission perm = await Geolocator.checkPermission();
+          if (perm == LocationPermission.denied) {
+            perm = await Geolocator.requestPermission();
+          }
+          if (perm != LocationPermission.denied &&
+              perm != LocationPermission.deniedForever) {
+            final pos = await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.high);
+            lat = pos.latitude;
+            lng = pos.longitude;
+            if (mounted) {
+              setState(() => _currentLocation = LatLng(lat, lng));
+            }
+          }
+        } catch (_) {}
+      }
 
       SocketService.instance.emit('mechanic:go_online', {
         'mechanicId': _mechanicId,
-        'lat':        lat,
-        'lng':        lng,
+        'lat': lat,
+        'lng': lng,
       });
     } else {
       SocketService.instance.emit('mechanic:go_offline', {
@@ -164,49 +215,252 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
     }
   }
 
+  // ── Map widget ────────────────────────────────────────────────────────────────
+
+  Widget _buildMap() {
+    final center = _currentLocation ?? _fallback;
+    final marker = Marker(
+      markerId: const MarkerId('mechanic'),
+      position: center,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+      infoWindow: const InfoWindow(title: 'You'),
+    );
+
+    return SizedBox(
+      height: 280,
+      child: Stack(
+        children: [
+          // Map
+          GoogleMap(
+            initialCameraPosition: CameraPosition(target: center, zoom: 14),
+            markers: {marker},
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
+            compassEnabled: false,
+            onMapCreated: (c) async {
+              _mapController = c;
+              await c.setMapStyle(_darkMapStyle);
+              if (_currentLocation != null) {
+                c.animateCamera(
+                    CameraUpdate.newLatLngZoom(_currentLocation!, 14));
+              }
+            },
+          ),
+
+          // Top-left: online status pill
+          Positioned(
+            top: 12,
+            left: 16,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xD9050A14),
+                border: Border.all(
+                    color: AppColors.darkSuccess.withOpacity(0.3)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.darkSuccess,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Online · Islamabad',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'DM Sans',
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Top-right: notification icon
+          Positioned(
+            top: 12,
+            right: 16,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xD9050A14),
+                border: Border.all(color: AppColors.darkBorder),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.notifications_outlined,
+                  color: Colors.white, size: 20),
+            ),
+          ),
+
+          // Bottom-left: active requests count
+          Positioned(
+            bottom: 10,
+            left: 16,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xD9050A14),
+                border: Border.all(color: AppColors.darkBorder),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_jobs.length} active requests nearby',
+                style: const TextStyle(
+                  color: AppColors.darkAccent,
+                  fontFamily: 'DM Sans',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Online bar ────────────────────────────────────────────────────────────────
+
+  Widget _buildOnlineBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.darkSuccess.withOpacity(0.08),
+          border: Border.all(
+              color: AppColors.darkSuccess.withOpacity(0.2)),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            // Status text
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: AppColors.darkSuccess,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isOnline ? "You're Online" : "You're Offline",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'DM Sans',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      _isOnline
+                          ? 'Receiving job requests'
+                          : 'Go online to receive jobs',
+                      style: const TextStyle(
+                        color: AppColors.darkTextSecondary,
+                        fontFamily: 'DM Sans',
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const Spacer(),
+            // Toggle
+            GestureDetector(
+              onTap: _toggleOnline,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 52,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: _isOnline
+                      ? AppColors.darkSuccess
+                      : AppColors.darkBorder,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Stack(
+                  children: [
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      left: _isOnline ? 26.0 : 2.0,
+                      top: 2,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final displayJobs = _selectedTab == 0 ? _jobs : <JobRequest>[];
-
     return Scaffold(
       backgroundColor: AppColors.darkBg,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Top bar ────────────────────────────────────────────────────────
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Top bar ──────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 4, 8),
               child: Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'OnRaasta',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'Syne',
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        'Welcome, $_mechanicName',
-                        style: const TextStyle(
-                          color: AppColors.darkTextSecondary,
-                          fontFamily: 'DM Sans',
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'OnRaasta',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Syne',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const Spacer(),
-
-                  // Logout
+                  if (_mechanicName.isNotEmpty)
+                    Text(
+                      _mechanicName,
+                      style: const TextStyle(
+                        color: AppColors.darkTextSecondary,
+                        fontFamily: 'DM Sans',
+                        fontSize: 13,
+                      ),
+                    ),
+                  const SizedBox(width: 8),
                   IconButton(
                     onPressed: () async {
                       await const FlutterSecureStorage().deleteAll();
@@ -215,183 +469,38 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
                     },
                     icon: const Icon(Icons.logout_rounded,
                         color: AppColors.darkTextSecondary, size: 22),
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.all(8),
                     constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Online / offline toggle
-                  Row(
-                    children: [
-                      Text(
-                        _isOnline ? 'Online' : 'Offline',
-                        style: TextStyle(
-                          color: _isOnline
-                              ? AppColors.darkSuccess
-                              : AppColors.darkTextSecondary,
-                          fontFamily: 'DM Sans',
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: _toggleOnline,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          width: 52,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: _isOnline
-                                ? AppColors.darkSuccess
-                                : AppColors.darkBorder,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Stack(
-                            children: [
-                              AnimatedPositioned(
-                                duration: const Duration(milliseconds: 250),
-                                curve: Curves.easeInOut,
-                                left: _isOnline ? 26.0 : 2.0,
-                                top: 2,
-                                child: Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
             ),
-          ),
 
-          // ── Stats row ──────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                _StatCard(
-                    value: '$_totalJobs', label: 'Jobs Done'),
-                _StatCard(
-                    value: _rating.toStringAsFixed(1), label: 'Rating'),
-                _StatCard(
-                    value: 'PKR $_earnings', label: 'PKR Earned'),
-              ],
-            ),
-          ),
+            // ── Map ──────────────────────────────────────────────────────────
+            _buildMap(),
 
-          // ── Tabs ───────────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Row(
-              children: List.generate(_tabLabels.length, (i) {
-                final active = _selectedTab == i;
-                return Padding(
-                  padding: EdgeInsets.only(right: i == 0 ? 8.0 : 0.0),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedTab = i),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: active
-                            ? AppColors.darkPrimary
-                            : AppColors.darkSurface,
-                        border: active
-                            ? null
-                            : Border.all(color: AppColors.darkBorder),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        _tabLabels[i],
-                        style: TextStyle(
-                          color: active
-                              ? Colors.white
-                              : AppColors.darkTextSecondary,
-                          fontFamily: 'DM Sans',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+            // ── Online bar ───────────────────────────────────────────────────
+            _buildOnlineBar(),
+
+            const SizedBox(height: 12),
+
+            // ── Job feed ──────────────────────────────────────────────────────
+            Expanded(
+              child: _jobs.isEmpty
+                  ? _EmptyState(isOnline: _isOnline)
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      itemCount: _jobs.length,
+                      itemBuilder: (_, i) => _JobCard(
+                        job: _jobs[i],
+                        onDecline: () =>
+                            setState(() => _jobs.removeAt(i)),
+                        onView: () => context.push(
+                          '/new-request-detail',
+                          extra: _jobs[i].toJson(),
                         ),
                       ),
                     ),
-                  ),
-                );
-              }),
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          // ── Job feed / empty state ─────────────────────────────────────────
-          Expanded(
-            child: displayJobs.isEmpty
-                ? _EmptyState(isOnline: _isOnline)
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: displayJobs.length,
-                    itemBuilder: (_, i) => _JobRequestCard(
-                      job: displayJobs[i],
-                      onViewDetails: () => context.push(
-                          '/new-request-detail',
-                          extra: displayJobs[i].toJson()),
-                      onPlaceBid: () => context.push(
-                          '/submit-bid',
-                          extra: displayJobs[i].toJson()),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
-
-class _StatCard extends StatelessWidget {
-  final String value;
-  final String label;
-  const _StatCard({required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.all(4),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.darkSurface,
-          border: Border.all(color: AppColors.darkBorder),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontFamily: 'Syne',
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.darkTextSecondary,
-                fontFamily: 'DM Sans',
-                fontSize: 11,
-              ),
             ),
           ],
         ),
@@ -400,160 +509,286 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ── Job request card ──────────────────────────────────────────────────────────
+// ── Job card ──────────────────────────────────────────────────────────────────
 
-class _JobRequestCard extends StatelessWidget {
+class _JobCard extends StatelessWidget {
   final JobRequest job;
-  final VoidCallback onViewDetails;
-  final VoidCallback onPlaceBid;
+  final VoidCallback onDecline;
+  final VoidCallback onView;
 
-  const _JobRequestCard({
+  const _JobCard({
     required this.job,
-    required this.onViewDetails,
-    required this.onPlaceBid,
+    required this.onDecline,
+    required this.onView,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface,
-        border: Border.all(color: AppColors.darkBorder),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          // ── Info row ──────────────────────────────────────────────────────
-          Row(
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 10, top: 6),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.darkSurface,
+            border: Border.all(
+              color: job.isNew ? AppColors.darkAccent : AppColors.darkBorder,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0x262563EB),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.car_repair_rounded,
-                    color: AppColors.darkPrimary, size: 24),
-              ),
-              const SizedBox(width: 12),
-
-              // Description + meta
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      job.description,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'DM Sans',
-                        fontSize: 14,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_rounded,
-                            color: AppColors.darkTextSecondary, size: 14),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${job.distance.toStringAsFixed(1)} km away',
-                          style: const TextStyle(
-                            color: AppColors.darkTextSecondary,
-                            fontFamily: 'DM Sans',
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.access_time_rounded,
-                            color: AppColors.darkTextSecondary, size: 14),
-                        const SizedBox(width: 3),
-                        Text(
-                          job.timeAgo,
-                          style: const TextStyle(
-                            color: AppColors.darkTextSecondary,
-                            fontFamily: 'DM Sans',
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // AI diagnosis badge + cost
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              // ── Header ──────────────────────────────────────────────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (job.faultLabel != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.darkAccent.withOpacity(0.15),
-                        border: Border.all(color: AppColors.darkAccent),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        job.faultLabel!,
-                        style: const TextStyle(
-                          color: AppColors.darkAccent,
-                          fontFamily: 'DM Sans',
-                          fontSize: 11,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          job.faultLabel?.toUpperCase() ??
+                              'Job Request',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Syne',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded,
+                                color: AppColors.darkAccent, size: 12),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${job.distance.toStringAsFixed(1)} km away',
+                              style: const TextStyle(
+                                color: AppColors.darkAccent,
+                                fontFamily: 'DM Sans',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 4),
+                  ),
                   Text(
-                    'PKR ${job.costMin ?? '?'}-${job.costMax ?? '?'}',
+                    job.timeAgo,
                     style: const TextStyle(
-                      color: AppColors.darkAccent,
-                      fontFamily: 'Syne',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      color: AppColors.darkTextSecondary,
+                      fontFamily: 'DM Sans',
+                      fontSize: 11,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
 
-          const SizedBox(height: 12),
-          const Divider(color: AppColors.darkBorder, height: 1),
-          const SizedBox(height: 12),
+              // ── Body ────────────────────────────────────────────────────────
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0x1A2563EB),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Text('🚗',
+                          style: TextStyle(fontSize: 18)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          job.description,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'DM Sans',
+                            fontSize: 13,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (job.faultLabel != null) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.darkAccent.withOpacity(0.08),
+                              border: Border.all(
+                                  color: AppColors.darkAccent
+                                      .withOpacity(0.2)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('🤖',
+                                    style: TextStyle(fontSize: 12)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'AI: ${job.faultLabel}',
+                                  style: const TextStyle(
+                                    color: AppColors.darkAccent,
+                                    fontFamily: 'DM Sans',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
 
-          // ── Action buttons ─────────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: OnRaastaButton(
-                  label: 'View Details',
-                  isPrimary: false,
-                  onPressed: onViewDetails,
+              // ── Footer ──────────────────────────────────────────────────────
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.only(top: 10),
+                decoration: const BoxDecoration(
+                  border: Border(
+                      top: BorderSide(color: AppColors.darkBorder)),
+                ),
+                child: Row(
+                  children: [
+                    // Cost pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.darkAccent.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Est. PKR ${job.costMin ?? '?'}–${job.costMax ?? '?'}',
+                        style: const TextStyle(
+                          color: AppColors.darkAccent,
+                          fontFamily: 'DM Sans',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    // Decline
+                    _SmallButton(
+                      label: 'Decline',
+                      isPrimary: false,
+                      onTap: onDecline,
+                    ),
+                    const SizedBox(width: 8),
+                    // View
+                    _SmallButton(
+                      label: 'View →',
+                      isPrimary: true,
+                      onTap: onView,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OnRaastaButton(
-                  label: 'Place Bid',
-                  onPressed: onPlaceBid,
-                ),
-              ),
             ],
           ),
-        ],
+        ),
+
+        // NEW badge
+        if (job.isNew)
+          Positioned(
+            top: -2,
+            right: 16,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.darkAccent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.darkError,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'NEW',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Syne',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── Small button ──────────────────────────────────────────────────────────────
+
+class _SmallButton extends StatelessWidget {
+  final String label;
+  final bool isPrimary;
+  final VoidCallback onTap;
+
+  const _SmallButton({
+    required this.label,
+    required this.isPrimary,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isPrimary
+              ? AppColors.darkPrimary
+              : Colors.transparent,
+          border: isPrimary
+              ? null
+              : Border.all(color: AppColors.darkBorder),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isPrimary
+                ? Colors.white
+                : AppColors.darkTextSecondary,
+            fontFamily: 'DM Sans',
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -568,34 +803,36 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.inbox_rounded,
-              color: AppColors.darkBorder, size: 64),
-          const SizedBox(height: 16),
-          Text(
-            isOnline ? 'No new requests nearby' : 'You are offline',
-            style: const TextStyle(
-              color: Colors.white,
-              fontFamily: 'Syne',
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox_rounded, color: AppColors.darkBorder, size: 56),
+            const SizedBox(height: 16),
+            Text(
+              isOnline ? 'No new requests nearby' : 'You are offline',
+              style: const TextStyle(
+                color: Colors.white,
+                fontFamily: 'Syne',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            isOnline
-                ? 'New jobs will appear here when users need help'
-                : 'Go online to start receiving job requests',
-            style: const TextStyle(
-              color: AppColors.darkTextSecondary,
-              fontFamily: 'DM Sans',
-              fontSize: 13,
+            const SizedBox(height: 8),
+            Text(
+              isOnline
+                  ? 'New jobs will appear here when users need help'
+                  : 'Go online to start receiving job requests',
+              style: const TextStyle(
+                color: AppColors.darkTextSecondary,
+                fontFamily: 'DM Sans',
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

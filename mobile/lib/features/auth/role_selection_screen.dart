@@ -23,6 +23,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     required Color iconBg,
     required Color iconColor,
     required Color checkColor,
+    required Color glowColor,
     required String title,
     required String subtitle,
     required List<String> features,
@@ -33,6 +34,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       onTap: () => setState(() => _selectedRole = role),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
+        constraints: const BoxConstraints(minHeight: 160),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: AppColors.darkSurface,
@@ -40,6 +42,15 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
           border: isSelected
               ? Border.all(color: checkColor, width: 2)
               : Border.all(color: AppColors.darkBorder, width: 1),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: glowColor.withOpacity(0.3),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,13 +60,13 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               children: [
                 // Icon container
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
                     color: iconBg,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(cardIcon, color: iconColor, size: 28),
+                  child: Icon(cardIcon, color: iconColor, size: 32),
                 ),
                 const SizedBox(width: 16),
                 // Title + subtitle
@@ -66,8 +77,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       Text(
                         title,
                         style: GoogleFonts.syne(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
                           color: AppColors.darkTextPrimary,
                         ),
                       ),
@@ -75,7 +86,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       Text(
                         subtitle,
                         style: GoogleFonts.dmSans(
-                          fontSize: 13,
+                          fontSize: 14,
                           color: AppColors.darkTextSecondary,
                         ),
                       ),
@@ -87,11 +98,11 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   Icon(Icons.check_circle, color: checkColor, size: 22),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             // Feature list
             ...features.map(
               (f) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
                     const Icon(
@@ -103,7 +114,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     Text(
                       f,
                       style: GoogleFonts.dmSans(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: AppColors.darkTextSecondary,
                       ),
                     ),
@@ -123,7 +134,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Active dot
         Container(
           width: 24,
           height: 8,
@@ -133,7 +143,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
           ),
         ),
         const SizedBox(width: 6),
-        // Inactive dot 2
         Container(
           width: 8,
           height: 8,
@@ -143,7 +152,6 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
           ),
         ),
         const SizedBox(width: 6),
-        // Inactive dot 3
         Container(
           width: 8,
           height: 8,
@@ -170,7 +178,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       backgroundColor: AppColors.darkBg,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -226,6 +234,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 iconBg: const Color(0xFF2563EB).withOpacity(0.15),
                 iconColor: AppColors.darkPrimary,
                 checkColor: AppColors.darkPrimary,
+                glowColor: const Color(0xFF2563EB),
                 title: 'Driver',
                 subtitle: 'I need roadside help',
                 features: const [
@@ -235,7 +244,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 ],
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               // Mechanic card
               _roleCard(
@@ -244,6 +253,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 iconBg: const Color(0xFFF97316).withOpacity(0.15),
                 iconColor: AppColors.darkAccent,
                 checkColor: AppColors.darkAccent,
+                glowColor: const Color(0xFFF97316),
                 title: 'Mechanic',
                 subtitle: 'I provide repair services',
                 features: const [
@@ -253,25 +263,28 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 ],
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 48),
 
-              OnRaastaButton(
-                label: buttonLabel,
-                isDisabled: _selectedRole == null,
-                onPressed: () {
-                  if (_selectedRole == 'user') {
-                    context.go('/signup', extra: 'user');
-                  } else if (_selectedRole == 'mechanic') {
-                    context.go('/signup', extra: 'mechanic');
-                  }
-                },
+              // Continue button
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: OnRaastaButton(
+                  label: buttonLabel,
+                  isDisabled: _selectedRole == null,
+                  onPressed: () {
+                    if (_selectedRole == 'user') {
+                      context.go('/signup', extra: 'user');
+                    } else if (_selectedRole == 'mechanic') {
+                      context.go('/signup', extra: 'mechanic');
+                    }
+                  },
+                ),
               ),
 
               const SizedBox(height: 24),
 
               _progressDots(),
-
-              const SizedBox(height: 32),
             ],
           ),
         ),
