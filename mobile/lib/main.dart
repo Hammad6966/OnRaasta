@@ -17,6 +17,10 @@ import 'core/theme/app_colors.dart';
 import 'features/user/user_home_screen.dart';
 import 'features/user/report_breakdown_screen.dart';
 import 'features/user/mechanics_found_screen.dart';
+import 'features/mechanic/mechanic_home_screen.dart';
+import 'features/user/user_profile_screen.dart';
+import 'features/mechanic/new_request_detail.dart';
+import 'features/mechanic/submit_bid_screen.dart';
 import 'providers/theme_provider.dart';
 
 Future<void> main() async {
@@ -37,8 +41,8 @@ Future<void> main() async {
   // Load .env
   await dotenv.load(fileName: '.env');
 
-  // Allow bundled Google Fonts only (no runtime fetching)
-  GoogleFonts.config.allowRuntimeFetching = false;
+  // Allow runtime font fetching
+  GoogleFonts.config.allowRuntimeFetching = true;
 
   // Hydrate persisted theme before first frame
   const storage = FlutterSecureStorage();
@@ -91,7 +95,7 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/user-home',
-      builder: (_, __) => const UserHomeScreen(),
+      builder: (_, __) => const UserHomeWrapper(),
     ),
     GoRoute(
       path: '/report-breakdown',
@@ -129,19 +133,82 @@ final _router = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/user-profile',
+      builder: (_, __) => const UserProfileScreen(),
+    ),
+    GoRoute(
       path: '/mechanic-home',
-      builder: (_, __) => Scaffold(
-        backgroundColor: AppColors.darkBg,
-        body: Center(
-          child: Text(
-            'Mechanic Home - Coming Soon',
-            style: GoogleFonts.dmSans(color: Colors.white),
-          ),
-        ),
-      ),
+      builder: (_, __) => const MechanicHomeScreen(),
+    ),
+    GoRoute(
+      path: '/new-request-detail',
+      builder: (_, state) {
+        final job = state.extra as Map<String, dynamic>? ?? {};
+        return NewRequestDetailScreen(job: job);
+      },
+    ),
+    GoRoute(
+      path: '/submit-bid',
+      builder: (_, state) {
+        final job = state.extra as Map<String, dynamic>? ?? {};
+        return SubmitBidScreen(job: job);
+      },
     ),
   ],
 );
+
+// ── User home wrapper (bottom nav shell) ─────────────────────────────────────
+
+class UserHomeWrapper extends StatefulWidget {
+  const UserHomeWrapper({super.key});
+
+  @override
+  State<UserHomeWrapper> createState() => _UserHomeWrapperState();
+}
+
+class _UserHomeWrapperState extends State<UserHomeWrapper> {
+  int _currentIndex = 0;
+
+  static const _pages = <Widget>[
+    UserHomeScreen(),
+    Scaffold(
+      backgroundColor: AppColors.darkBg,
+      body: Center(
+        child: Text(
+          'History Coming Soon',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+    ),
+    UserProfileScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.darkBg,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+        backgroundColor: AppColors.darkSurface,
+        selectedItemColor: AppColors.darkPrimary,
+        unselectedItemColor: AppColors.darkTextSecondary,
+        items: const [
+          BottomNavigationBarItem(
+              icon: Icon(Icons.home_rounded), label: 'Home'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.history_rounded), label: 'History'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_rounded), label: 'Profile'),
+        ],
+      ),
+    );
+  }
+}
 
 // ── App root ─────────────────────────────────────────────────────────────────
 

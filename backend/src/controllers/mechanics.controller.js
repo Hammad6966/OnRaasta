@@ -44,4 +44,23 @@ const getNearby = async (req, res, next) => {
   }
 };
 
-module.exports = { getNearby };
+/**
+ * GET /api/mechanics/profile
+ * Returns the authenticated mechanic's profile with user data.
+ */
+const getProfile = async (req, res, next) => {
+  try {
+    const mechanic = await Mechanic.findOne({ userId: req.user.id })
+      .populate('userId', 'name phone email role');
+
+    if (!mechanic) {
+      return res.status(404).json({ success: false, message: 'Mechanic profile not found' });
+    }
+
+    return res.status(200).json({ success: true, data: mechanic });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getNearby, getProfile };

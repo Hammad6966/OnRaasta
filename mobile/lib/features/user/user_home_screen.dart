@@ -368,7 +368,7 @@ class _BottomPanel extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black54,
+            color: Color(0x262563EB), // #2563EB at 15% opacity
             blurRadius: 20,
             offset: Offset(0, -4),
           ),
@@ -399,31 +399,32 @@ class _BottomPanel extends StatelessWidget {
                 GestureDetector(
                   onTap: onBreakdownTap,
                   child: Container(
-                    padding: const EdgeInsets.all(16),
+                    height: 80,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                     ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 52,
+                          height: 52,
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Center(
-                            child: Text('🚨', style: TextStyle(fontSize: 22)),
-                          ),
+                          child: const Icon(Icons.car_crash_rounded,
+                              color: Colors.white, size: 40),
                         ),
                         const SizedBox(width: 14),
                         const Expanded(
                           child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
@@ -431,8 +432,8 @@ class _BottomPanel extends StatelessWidget {
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontFamily: 'Syne',
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               SizedBox(height: 2),
@@ -440,7 +441,8 @@ class _BottomPanel extends StatelessWidget {
                                 'Tap to report · AI diagnosis · instant help',
                                 style: TextStyle(
                                   color: Color(0xB3FFFFFF),
-                                  fontSize: 12,
+                                  fontFamily: 'DM Sans',
+                                  fontSize: 13,
                                 ),
                               ),
                             ],
@@ -481,34 +483,13 @@ class _BottomPanel extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: const [
-                    _ServiceChip(emoji: '🔧', label: 'Engine Fix'),
-                    _ServiceChip(emoji: '🔋', label: 'Battery Jump'),
-                    _ServiceChip(emoji: '🛞', label: 'Flat Tire'),
-                    _ServiceChip(emoji: '⛽', label: 'Fuel Delivery'),
+                    _ServiceChip(icon: Icons.build_rounded,       label: 'Engine Fix'),
+                    _ServiceChip(icon: Icons.battery_charging_full_rounded, label: 'Battery Jump'),
+                    _ServiceChip(icon: Icons.tire_repair_rounded, label: 'Flat Tire'),
+                    _ServiceChip(icon: Icons.local_gas_station_rounded, label: 'Fuel Delivery'),
                   ],
                 ),
-              ],
-            ),
-          ),
-
-          // Bottom nav
-          Container(
-            decoration: const BoxDecoration(
-              color: AppColors.darkSurfaceVariant,
-              border: Border(
-                  top: BorderSide(color: AppColors.darkBorder)),
-            ),
-            padding: const EdgeInsets.only(top: 12, bottom: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: const [
-                _NavItem(
-                    icon: Icons.home_rounded, label: 'Home', active: true),
-                _NavItem(
-                    icon: Icons.receipt_long_rounded, label: 'History'),
-                _NavItem(icon: Icons.person_rounded, label: 'Profile'),
-                _NavItem(
-                    icon: Icons.support_agent_rounded, label: 'Support'),
+                const SizedBox(height: 8),
               ],
             ),
           ),
@@ -521,30 +502,31 @@ class _BottomPanel extends StatelessWidget {
 // ── Service chip ─────────────────────────────────────────────────────────────
 
 class _ServiceChip extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String label;
-  const _ServiceChip({required this.emoji, required this.label});
+  const _ServiceChip({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 76,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+      width: 88,
+      height: 88,
       decoration: BoxDecoration(
         color: AppColors.darkSurface,
         border: Border.all(color: AppColors.darkBorder),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 22)),
-          const SizedBox(height: 6),
+          Icon(icon, color: AppColors.darkPrimary, size: 32),
+          const SizedBox(height: 8),
           Text(
             label,
             style: const TextStyle(
-              color: AppColors.darkTextSecondary,
-              fontSize: 10,
+              color: Colors.white,
+              fontFamily: 'DM Sans',
+              fontSize: 12,
             ),
             textAlign: TextAlign.center,
             maxLines: 2,
@@ -555,30 +537,3 @@ class _ServiceChip extends StatelessWidget {
   }
 }
 
-// ── Nav item ─────────────────────────────────────────────────────────────────
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  const _NavItem(
-      {required this.icon, required this.label, this.active = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-        active ? AppColors.darkPrimary : AppColors.darkTextSecondary;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-              color: color, fontSize: 10, fontWeight: FontWeight.w500),
-        ),
-      ],
-    );
-  }
-}
