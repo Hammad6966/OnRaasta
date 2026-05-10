@@ -21,6 +21,7 @@ import 'features/mechanic/mechanic_home_screen.dart';
 import 'features/user/user_profile_screen.dart';
 import 'features/mechanic/new_request_detail.dart';
 import 'features/mechanic/submit_bid_screen.dart';
+import 'features/user/mechanic_profile_view.dart';
 import 'providers/theme_provider.dart';
 
 Future<void> main() async {
@@ -110,15 +111,10 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/mechanic-profile',
-      builder: (_, __) => Scaffold(
-        backgroundColor: AppColors.darkBg,
-        body: Center(
-          child: Text(
-            'Mechanic Profile - Coming Soon',
-            style: GoogleFonts.dmSans(color: Colors.white),
-          ),
-        ),
-      ),
+      builder: (_, state) {
+        final bid = state.extra as Map<String, dynamic>? ?? {};
+        return MechanicProfileView(bid: bid);
+      },
     ),
     GoRoute(
       path: '/live-tracking',

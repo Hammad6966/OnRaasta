@@ -214,6 +214,36 @@ class _MechanicsFoundScreenState extends State<MechanicsFoundScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.darkBg,
+      // ── DEV ONLY: test mechanic profile ──────────────────────────────────────
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 220),
+        child: FloatingActionButton.small(
+          heroTag: 'test_profile',
+          backgroundColor: AppColors.darkSurface,
+          onPressed: () => context.push('/mechanic-profile', extra: {
+            'bidId':        'test123',
+            '_id':          'test123',
+            'mechanicName': 'Ali Hassan',
+            'totalCost':    1500,
+            'labourCost':   1000,
+            'partsCost':    500,
+            'eta':          15,
+            'rating':       4.5,
+            'totalJobs':    47,
+            'skills':       ['General Mechanic', 'Engine Specialist'],
+          }),
+          child: const Text(
+            'P',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Syne',
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
