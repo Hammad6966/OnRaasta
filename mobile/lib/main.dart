@@ -14,6 +14,7 @@ import 'features/auth/signup_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/otp_screen.dart';
 import 'core/theme/app_colors.dart';
+import 'features/user/user_home_screen.dart';
 import 'providers/theme_provider.dart';
 
 Future<void> main() async {
@@ -88,15 +89,7 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/user-home',
-      builder: (_, __) => Scaffold(
-        backgroundColor: AppColors.darkBg,
-        body: Center(
-          child: Text(
-            'User Home - Coming Soon',
-            style: GoogleFonts.dmSans(color: Colors.white),
-          ),
-        ),
-      ),
+      builder: (_, __) => const UserHomeScreen(),
     ),
     GoRoute(
       path: '/mechanic-home',

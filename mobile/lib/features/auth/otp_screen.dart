@@ -82,7 +82,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final response = await dio.post(
+      final response = await apiDio.post(
         '/auth/verify-otp',
         data: {'phone': widget.phone, 'otp': otp},
       );
@@ -115,7 +115,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Future<void> _resendOtp() async {
     try {
-      await dio.post('/auth/resend-otp', data: {'phone': widget.phone});
+      await apiDio.post('/auth/resend-otp', data: {'phone': widget.phone});
       _startTimer();
       if (!mounted) return;
       _showSnackBar('OTP resent successfully', isError: false);

@@ -68,7 +68,7 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await dio.post(
+      await apiDio.post(
         '/auth/register',
         data: {
           'name':     _nameController.text.trim(),

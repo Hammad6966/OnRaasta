@@ -4,7 +4,7 @@ import '../core/constants/api_constants.dart';
 
 // ── Singleton Dio instance ────────────────────────────────────────────────────
 
-final Dio dio = _buildDio();
+final Dio apiDio = _buildDio();
 
 Dio _buildDio() {
   final instance = Dio(
