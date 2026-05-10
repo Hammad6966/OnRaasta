@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OnRaasta – Admin Screens</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --dark:#050A14;--navy:#080F1E;--card:#0B1929;--sidebar:#060D1A;
+  --blue:#2563EB;--orange:#F97316;--white:#FFFFFF;--gray:#64748B;
+  --lightgray:#94A3B8;--border:#0F2642;--green:#22C55E;--red:#EF4444;
+  --yellow:#F59E0B;--purple:#8B5CF6;
+}
+body{background:#030810;font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:40px}
+h1{color:var(--white);font-family:'Syne',sans-serif;font-size:28px;font-weight:800;text-align:center}
+h1 span{color:var(--orange)}
+.subtitle{color:var(--lightgray);font-size:14px;text-align:center;margin-top:6px}
+.screens-col{display:flex;flex-direction:column;gap:40px;width:100%;max-width:1200px}
+.screen-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
+.screen-label{color:var(--lightgray);font-size:12px;font-family:'Syne',sans-serif;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+/* DESKTOP SHELL */
+.desktop{width:100%;background:var(--dark);border-radius:16px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 30px 100px rgba(0,0,0,0.7);display:flex;flex-direction:column}
+.titlebar{background:var(--navy);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:8px}
+.titlebar-dot{width:12px;height:12px;border-radius:50%}
+.titlebar-url{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px 16px;flex:1;max-width:400px;margin:0 auto;color:var(--gray);font-size:12px;text-align:center}
+.app-shell{display:flex;min-height:600px}
+.sidebar{width:220px;background:var(--sidebar);border-right:1px solid var(--border);padding:20px 0;flex-shrink:0;display:flex;flex-direction:column}
+.sidebar-logo{padding:0 20px 20px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.sidebar-logo-text{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--white)}
+.sidebar-logo-text span{color:var(--orange)}
+.nav-section{padding:0 12px;margin-bottom:8px}
+.nav-section-label{color:var(--gray);font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:0 8px;margin-bottom:6px}
+.nav-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;color:var(--lightgray);font-size:13px;font-weight:500;cursor:pointer;margin-bottom:2px}
+.nav-link.active{background:rgba(37,99,235,0.12);color:var(--white);border:1px solid rgba(37,99,235,0.2)}
+.nav-link:not(.active):hover{background:rgba(255,255,255,0.04)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--red);color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px}
+.sidebar-footer{margin-top:auto;padding:16px 12px 0;border-top:1px solid var(--border)}
+.admin-profile{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px}
+.admin-ava{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--blue),#1D4ED8);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.admin-name{color:var(--white);font-size:12px;font-weight:600}
+.admin-role{color:var(--gray);font-size:11px}
+.main-content{flex:1;overflow:auto;padding:24px;background:var(--dark)}
+/* TOPBAR */
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.page-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--white)}
+.topbar-actions{display:flex;align-items:center;gap:12px}
+.search-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--lightgray);font-size:13px;display:flex;align-items:center;gap:8px;min-width:220px}
+.btn-sm{padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btn-blue{background:var(--blue);color:white;border:none}
+/* STATS ROW */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:0.06}
+.stat-card.blue::before{background:var(--blue)}
+.stat-card.green::before{background:var(--green)}
+.stat-card.orange::before{background:var(--orange)}
+.stat-card.purple::before{background:var(--purple)}
+.stat-icon{font-size:22px;margin-bottom:10px}
+.stat-value{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--white)}
+.stat-label{color:var(--lightgray);font-size:12px;margin-top:2px}
+.stat-delta{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;margin-top:6px}
+.delta-up{color:var(--green)}
+.delta-down{color:var(--red)}
+/* TABLE */
+.table-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px}
+.table-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border)}
+.table-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--white)}
+.filters{display:flex;gap:8px}
+.filter-chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;background:transparent;border:1px solid var(--border);color:var(--lightgray)}
+.filter-chip.active{background:rgba(37,99,235,0.12);border-color:rgba(37,99,235,0.3);color:#60A5FA}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 20px;color:var(--gray);font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:13px 20px;color:var(--lightgray);font-size:13px;border-bottom:1px solid rgba(15,38,66,0.5)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.user-cell{display:flex;align-items:center;gap:10px}
+.table-avatar{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.user-name{color:var(--white);font-size:13px;font-weight:500}
+.user-email{font-size:11px;color:var(--gray)}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:rgba(34,197,94,0.12);color:var(--green)}
+.badge-orange{background:rgba(249,115,22,0.12);color:var(--orange)}
+.badge-red{background:rgba(239,68,68,0.12);color:var(--red)}
+.badge-blue{background:rgba(37,99,235,0.12);color:#60A5FA}
+.badge-gray{background:rgba(100,116,139,0.15);color:var(--lightgray)}
+.action-btns{display:flex;gap:6px}
+.action-btn{padding:4px 10px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--lightgray)}
+.action-btn.approve{border-color:rgba(34,197,94,0.3);color:var(--green);background:rgba(34,197,94,0.06)}
+.action-btn.reject{border-color:rgba(239,68,68,0.3);color:var(--red);background:rgba(239,68,68,0.06)}
+.action-btn.view{border-color:rgba(37,99,235,0.3);color:#60A5FA;background:rgba(37,99,235,0.06)}
+/* TWO COLS */
+.two-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+/* CHART MOCK */
+.chart-area{padding:20px;position:relative}
+.chart-bars{display:flex;gap:6px;align-items:flex-end;height:100px;padding:0 10px}
+.bar{flex:1;border-radius:4px 4px 0 0;min-width:20px}
+.chart-labels{display:flex;gap:6px;padding:6px 10px 0}
+.chart-label{flex:1;text-align:center;font-size:10px;color:var(--gray)}
+/* DISPUTE */
+.dispute-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px}
+.dispute-item{padding:16px 20px;border-bottom:1px solid rgba(15,38,66,0.5);display:flex;align-items:flex-start;gap:14px}
+.dispute-item:last-child{border-bottom:none}
+.dispute-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.dispute-body{flex:1}
+.dispute-title{color:var(--white);font-size:13px;font-weight:600;margin-bottom:3px}
+.dispute-meta{color:var(--gray);font-size:11px;margin-bottom:6px}
+.dispute-desc{color:var(--lightgray);font-size:12px;line-height:1.5}
+.priority-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:6px}
+.priority-high{background:var(--red)}
+.priority-med{background:var(--yellow)}
+.priority-low{background:var(--green)}
+/* ANALYTICS PAGE */
+.analytics-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px}
+.donut-chart{width:120px;height:120px;border-radius:50%;background:conic-gradient(var(--orange) 0% 34%,var(--blue) 34% 54%,var(--green) 54% 69%,var(--purple) 69% 80%,var(--gray) 80%);margin:0 auto;position:relative}
+.donut-hole{width:72px;height:72px;border-radius:50%;background:var(--card);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center}
+.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.legend-label{color:var(--lightgray);font-size:11px;flex:1}
+.legend-val{color:var(--white);font-size:11px;font-weight:600}
+</style>
+</head>
+<body>
+<h1>OnRaasta <span>Admin</span> — Web Dashboard</h1>
+<p class="subtitle">Screens 22–27 · Admin Dashboard + IoT Module</p>
+
+<div class="screens-col">
+
+<!-- SCREEN 22: ADMIN DASHBOARD HOME -->
+<div class="screen-wrap">
+  <div class="screen-label">22 · Admin Dashboard</div>
+  <div class="desktop">
+    <div class="titlebar">
+      <div class="titlebar-dot" style="background:#FF5F57"></div>
+      <div class="titlebar-dot" style="background:#FFBC2E"></div>
+      <div class="titlebar-dot" style="background:#28C840"></div>
+      <div class="titlebar-url">admin.onraasta.pk/dashboard</div>
+    </div>
+    <div class="app-shell">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <div class="sidebar-logo-text">On<span>Raasta</span></div>
+          <div style="color:var(--gray);font-size:11px;margin-top:2px">Admin Panel</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Main</div>
+          <div class="nav-link active"><div class="nav-icon">🏠</div>Dashboard</div>
+          <div class="nav-link"><div class="nav-icon">👥</div>Users<div class="nav-badge">12</div></div>
+          <div class="nav-link"><div class="nav-icon">🔧</div>Mechanics</div>
+          <div class="nav-link"><div class="nav-icon">📋</div>Jobs</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Analytics</div>
+          <div class="nav-link"><div class="nav-icon">📊</div>Reports</div>
+          <div class="nav-link"><div class="nav-icon">🛡</div>Fraud & Alerts<div class="nav-badge">3</div></div>
+          <div class="nav-link"><div class="nav-icon">📡</div>IoT Monitor</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">System</div>
+          <div class="nav-link"><div class="nav-icon">⚙️</div>Config</div>
+          <div class="nav-link"><div class="nav-icon">🔔</div>Notifications</div>
+        </div>
+        <div class="sidebar-footer">
+          <div class="admin-profile">
+            <div class="admin-ava">👩</div>
+            <div><div class="admin-name">Admin</div><div class="admin-role">Super Admin</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- Main content -->
+      <div class="main-content">
+        <!-- Topbar -->
+        <div class="topbar">
+          <div>
+            <div class="page-title">Admin Dashboard</div>
+            <div style="color:var(--gray);font-size:13px;margin-top:2px">Welcome back, Admin</div>
+          </div>
+          <div class="topbar-actions">
+            <div style="display:flex;gap:8px">
+              <div style="background:var(--blue);color:white;border-radius:20px;padding:7px 16px;font-size:12px;font-weight:600">Today</div>
+              <div style="background:var(--card);border:1px solid var(--border);color:var(--lightgray);border-radius:20px;padding:7px 16px;font-size:12px">This Week</div>
+              <div style="background:var(--card);border:1px solid var(--border);color:var(--lightgray);border-radius:20px;padding:7px 16px;font-size:12px">This Month</div>
+            </div>
+            <div style="width:36px;height:36px;background:var(--card);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative">
+              🔔
+              <div style="position:absolute;top:6px;right:6px;width:8px;height:8px;background:var(--red);border-radius:50%;border:1.5px solid var(--dark)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Cards row -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px">
+          <!-- Active Users -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;">
+            <div style="display:flex;align-items:center;gap:8px;color:var(--lightgray);font-size:12px;margin-bottom:10px">
+              <span style="font-size:18px">👥</span> Active Users
+            </div>
+            <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--white)">580</div>
+            <div style="color:var(--green);font-size:12px;font-weight:600;margin-top:6px">↑ +8%</div>
+          </div>
+          <!-- Revenue -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;">
+            <div style="display:flex;align-items:center;gap:8px;color:var(--lightgray);font-size:12px;margin-bottom:10px">
+              <span style="font-size:18px">💰</span> Revenue
+            </div>
+            <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--white)">$45k</div>
+            <div style="color:var(--green);font-size:12px;font-weight:600;margin-top:6px">↑ +15%</div>
+          </div>
+          <!-- Active Jobs -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;">
+            <div style="display:flex;align-items:center;gap:8px;color:var(--lightgray);font-size:12px;margin-bottom:10px">
+              <span style="font-size:18px">🔧</span> Active Jobs
+            </div>
+            <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--white)">38</div>
+            <div style="color:var(--orange);font-size:12px;font-weight:600;margin-top:6px">↑ +5% live now</div>
+          </div>
+          <!-- Mechanics Online -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;">
+            <div style="display:flex;align-items:center;gap:8px;color:var(--lightgray);font-size:12px;margin-bottom:10px">
+              <span style="font-size:18px">🟢</span> Mechanics Online
+            </div>
+            <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--white)">124</div>
+            <div style="color:var(--green);font-size:12px;font-weight:600;margin-top:6px">↑ +3% vs yesterday</div>
+          </div>
+        </div>
+
+        <!-- Middle row: Chart + Heatmap -->
+        <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:20px">
+          <!-- Jobs completed chart -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div>
+                <div style="color:var(--lightgray);font-size:12px">Total Jobs Completed</div>
+                <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--white);display:flex;align-items:center;gap:10px">
+                  1,240 <span style="font-size:14px;font-weight:600;background:rgba(34,197,94,0.12);color:var(--green);border-radius:8px;padding:4px 10px">+12%</span>
+                </div>
+              </div>
+              <div style="color:var(--lightgray);font-size:20px">···</div>
+            </div>
+            <svg viewBox="0 0 400 100" style="width:100%;height:100px;margin-top:12px">
+              <defs>
+                <linearGradient id="jobGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#2563EB" stop-opacity="0.25"/>
+                  <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0 80 Q40 70 80 72 Q120 74 160 60 Q200 46 240 52 Q280 58 320 30 Q360 10 400 15 L400 100 L0 100Z" fill="url(#jobGrad)"/>
+              <path d="M0 80 Q40 70 80 72 Q120 74 160 60 Q200 46 240 52 Q280 58 320 30 Q360 10 400 15" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <div style="display:flex;justify-content:space-around;color:var(--gray);font-size:11px;margin-top:8px">
+              <span>W1</span><span>W2</span><span>W3</span><span>W4</span>
+            </div>
+          </div>
+
+          <!-- Response Time Heatmap -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+            <div style="color:var(--white);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:12px">Response Time Heatmap</div>
+            <!-- Heatmap grid -->
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px">
+              <!-- Row 1 - Mon -->
+              <div style="height:28px;background:rgba(34,197,94,0.7);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.5);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(245,158,11,0.6);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.4);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(239,68,68,0.7);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.6);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.3);border-radius:4px"></div>
+              <!-- Row 2 -->
+              <div style="height:28px;background:rgba(245,158,11,0.5);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.8);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(239,68,68,0.8);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(239,68,68,0.6);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(245,158,11,0.7);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.5);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.7);border-radius:4px"></div>
+              <!-- Row 3 -->
+              <div style="height:28px;background:rgba(34,197,94,0.6);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(239,68,68,0.5);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.9);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(245,158,11,0.4);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.7);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(239,68,68,0.4);border-radius:4px"></div>
+              <div style="height:28px;background:rgba(34,197,94,0.5);border-radius:4px"></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center">
+              <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;background:var(--green);border-radius:50%"></div><span style="color:var(--lightgray);font-size:11px">&lt; 10m</span></div>
+              <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;background:var(--yellow);border-radius:50%"></div><span style="color:var(--lightgray);font-size:11px">10–30m</span></div>
+              <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;background:var(--red);border-radius:50%"></div><span style="color:var(--lightgray);font-size:11px">&gt; 30m</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom row: AI Diagnosis + Fraud Alerts -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <!-- AI Diagnosis Breakdown -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div style="color:var(--white);font-family:'Syne',sans-serif;font-size:15px;font-weight:700">AI Diagnosis Breakdown</div>
+              <span style="color:var(--blue);font-size:12px">View All</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--white);font-size:13px;font-weight:500">Engine Overheat</span><span style="color:var(--white);font-size:13px;font-weight:700">34%</span></div>
+                <div style="background:rgba(255,255,255,0.08);border-radius:6px;height:7px"><div style="width:34%;height:100%;background:var(--orange);border-radius:6px"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--white);font-size:13px;font-weight:500">Battery Failure</span><span style="color:var(--white);font-size:13px;font-weight:700">20%</span></div>
+                <div style="background:rgba(255,255,255,0.08);border-radius:6px;height:7px"><div style="width:20%;height:100%;background:var(--blue);border-radius:6px"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--white);font-size:13px;font-weight:500">Brake System</span><span style="color:var(--white);font-size:13px;font-weight:700">15%</span></div>
+                <div style="background:rgba(255,255,255,0.08);border-radius:6px;height:7px"><div style="width:15%;height:100%;background:var(--purple);border-radius:6px"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--white);font-size:13px;font-weight:500">Flat Tire</span><span style="color:var(--white);font-size:13px;font-weight:700">18%</span></div>
+                <div style="background:rgba(255,255,255,0.08);border-radius:6px;height:7px"><div style="width:18%;height:100%;background:var(--green);border-radius:6px"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--white);font-size:13px;font-weight:500">Fuel / Other</span><span style="color:var(--white);font-size:13px;font-weight:700">13%</span></div>
+                <div style="background:rgba(255,255,255,0.08);border-radius:6px;height:7px"><div style="width:13%;height:100%;background:var(--yellow);border-radius:6px"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fraud & Alerts -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+            <div style="color:var(--white);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px">Fraud & Alerts</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <!-- Alert 1 -->
+              <div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.18);border-radius:14px;padding:14px;display:flex;align-items:flex-start;gap:12px">
+                <div style="width:40px;height:40px;background:rgba(239,68,68,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🛡</div>
+                <div style="flex:1">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="color:var(--white);font-size:13px;font-weight:600">Suspicious login attempt</div>
+                    <div style="color:var(--gray);font-size:11px">2m ago</div>
+                  </div>
+                  <div style="color:var(--lightgray);font-size:12px;margin-top:3px">User ID #492 • IP Mismatch detected</div>
+                </div>
+              </div>
+              <!-- Alert 2 -->
+              <div style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.18);border-radius:14px;padding:14px;display:flex;align-items:flex-start;gap:12px">
+                <div style="width:40px;height:40px;background:rgba(245,158,11,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📍</div>
+                <div style="flex:1">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="color:var(--white);font-size:13px;font-weight:600">GPS Mismatch</div>
+                    <div style="color:var(--gray);font-size:11px">15m ago</div>
+                  </div>
+                  <div style="color:var(--lightgray);font-size:12px;margin-top:3px">Job #991 • 5km deviation from route</div>
+                </div>
+              </div>
+              <!-- Alert 3 -->
+              <div style="background:rgba(139,92,246,0.07);border:1px solid rgba(139,92,246,0.18);border-radius:14px;padding:14px;display:flex;align-items:flex-start;gap:12px">
+                <div style="width:40px;height:40px;background:rgba(139,92,246,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">⚠️</div>
+                <div style="flex:1">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="color:var(--white);font-size:13px;font-weight:600">Abnormal Bid Pattern</div>
+                    <div style="color:var(--gray);font-size:11px">1h ago</div>
+                  </div>
+                  <div style="color:var(--lightgray);font-size:12px;margin-top:3px">Mechanic #203 • 12 bids in 10 mins</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 23: USER & MECHANIC MANAGEMENT -->
+<div class="screen-wrap">
+  <div class="screen-label">23 · User & Mechanic Management</div>
+  <div class="desktop">
+    <div class="titlebar">
+      <div class="titlebar-dot" style="background:#FF5F57"></div>
+      <div class="titlebar-dot" style="background:#FFBC2E"></div>
+      <div class="titlebar-dot" style="background:#28C840"></div>
+      <div class="titlebar-url">admin.onraasta.pk/users</div>
+    </div>
+    <div class="app-shell">
+      <div class="sidebar">
+        <div class="sidebar-logo"><div class="sidebar-logo-text">On<span>Raasta</span></div><div style="color:var(--gray);font-size:11px;margin-top:2px">Admin Panel</div></div>
+        <div class="nav-section">
+          <div class="nav-section-label">Main</div>
+          <div class="nav-link"><span class="nav-icon">🏠</span>Dashboard</div>
+          <div class="nav-link active"><span class="nav-icon">👥</span>Users & Mechanics</div>
+          <div class="nav-link"><span class="nav-icon">📋</span>Document Verify<span class="nav-badge">5</span></div>
+          <div class="nav-link"><span class="nav-icon">💬</span>Complaints<span class="nav-badge">3</span></div>
+          <div class="nav-link"><span class="nav-icon">📊</span>Analytics</div>
+          <div class="nav-link"><span class="nav-icon">🛡️</span>Fraud Alerts</div>
+        </div>
+        <div class="sidebar-footer">
+          <div class="admin-profile">
+            <div class="admin-ava">👩</div>
+            <div><div class="admin-name">Admin</div><div class="admin-role">Super Admin</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="main-content">
+        <div class="topbar">
+          <div>
+            <div class="page-title">Users & Mechanics</div>
+            <div style="color:var(--gray);font-size:13px;margin-top:2px">580 users · 142 mechanics · 12 pending</div>
+          </div>
+          <div class="topbar-actions">
+            <div class="search-box">🔍 <span>Search by name, phone, ID...</span></div>
+            <button class="btn-sm btn-blue">+ Export CSV</button>
+          </div>
+        </div>
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card blue"><div class="stat-icon">👤</div><div class="stat-value">580</div><div class="stat-label">Total Users</div><div class="stat-delta delta-up">↑ +8% this week</div></div>
+          <div class="stat-card orange"><div class="stat-icon">🔧</div><div class="stat-value">142</div><div class="stat-label">Verified Mechanics</div><div class="stat-delta delta-up">↑ +12 new</div></div>
+          <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-value">1,240</div><div class="stat-label">Jobs Completed</div><div class="stat-delta delta-up">↑ +15%</div></div>
+          <div class="stat-card purple"><div class="stat-icon">⚠️</div><div class="stat-value">12</div><div class="stat-label">Pending Verifications</div><div class="stat-delta delta-down">↓ Action needed</div></div>
+        </div>
+        <!-- Filters -->
+        <div class="table-card">
+          <div class="table-header">
+            <span class="table-title">All Users</span>
+            <div class="filters">
+              <div class="filter-chip active">All (722)</div>
+              <div class="filter-chip">Drivers (580)</div>
+              <div class="filter-chip">Mechanics (142)</div>
+              <div class="filter-chip">Suspended (8)</div>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th>User</th><th>Role</th><th>Phone</th><th>Joined</th><th>Jobs</th><th>Status</th><th>Actions</th>
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="user-cell"><div class="table-avatar" style="background:rgba(37,99,235,0.15)">👤</div><div><div class="user-name">Ahmad Raza</div><div class="user-email">ahmad.raza@gmail.com</div></div></div></td>
+                <td><span class="badge badge-blue">Driver</span></td>
+                <td style="color:var(--white)">+92 300 1234567</td>
+                <td>Jan 12, 2024</td>
+                <td style="color:var(--white);font-weight:600">12</td>
+                <td><span class="badge badge-green">Active</span></td>
+                <td><div class="action-btns"><button class="action-btn view">View</button><button class="action-btn reject">Suspend</button></div></td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="table-avatar" style="background:rgba(249,115,22,0.15)">🔧</div><div><div class="user-name">Faisal Ahmed</div><div class="user-email">faisal.ahmed@example.com</div></div></div></td>
+                <td><span class="badge badge-orange">Mechanic</span></td>
+                <td style="color:var(--white)">+92 300 7654321</td>
+                <td>Mar 5, 2023</td>
+                <td style="color:var(--white);font-weight:600">42</td>
+                <td><span class="badge badge-green">Online</span></td>
+                <td><div class="action-btns"><button class="action-btn view">View</button><button class="action-btn reject">Suspend</button></div></td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="table-avatar" style="background:rgba(239,68,68,0.12)">👤</div><div><div class="user-name">Sara Khan</div><div class="user-email">sara.khan@yahoo.com</div></div></div></td>
+                <td><span class="badge badge-blue">Driver</span></td>
+                <td style="color:var(--white)">+92 321 9876543</td>
+                <td>Feb 20, 2024</td>
+                <td style="color:var(--white);font-weight:600">5</td>
+                <td><span class="badge badge-red">Suspended</span></td>
+                <td><div class="action-btns"><button class="action-btn view">View</button><button class="action-btn approve">Restore</button></div></td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="table-avatar" style="background:rgba(249,115,22,0.15)">🔧</div><div><div class="user-name">Usman Motors</div><div class="user-email">usman.motors@pk.com</div></div></div></td>
+                <td><span class="badge badge-orange">Mechanic</span></td>
+                <td style="color:var(--white)">+92 333 1122334</td>
+                <td>Jun 1, 2023</td>
+                <td style="color:var(--white);font-weight:600">34</td>
+                <td><span class="badge badge-blue">Offline</span></td>
+                <td><div class="action-btns"><button class="action-btn view">View</button><button class="action-btn reject">Suspend</button></div></td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="table-avatar" style="background:rgba(37,99,235,0.15)">👤</div><div><div class="user-name">Bilal Hussain</div><div class="user-email">bilal.h@gmail.com</div></div></div></td>
+                <td><span class="badge badge-blue">Driver</span></td>
+                <td style="color:var(--white)">+92 311 5566778</td>
+                <td>Apr 14, 2024</td>
+                <td style="color:var(--white);font-weight:600">3</td>
+                <td><span class="badge badge-green">Active</span></td>
+                <td><div class="action-btns"><button class="action-btn view">View</button><button class="action-btn reject">Suspend</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 24: DOCUMENT VERIFICATION -->
+<div class="screen-wrap">
+  <div class="screen-label">24 · Document Verification Panel</div>
+  <div class="desktop">
+    <div class="titlebar">
+      <div class="titlebar-dot" style="background:#FF5F57"></div>
+      <div class="titlebar-dot" style="background:#FFBC2E"></div>
+      <div class="titlebar-dot" style="background:#28C840"></div>
+      <div class="titlebar-url">admin.onraasta.pk/verify</div>
+    </div>
+    <div class="app-shell">
+      <div class="sidebar">
+        <div class="sidebar-logo"><div class="sidebar-logo-text">On<span>Raasta</span></div><div style="color:var(--gray);font-size:11px;margin-top:2px">Admin Panel</div></div>
+        <div class="nav-section">
+          <div class="nav-section-label">Main</div>
+          <div class="nav-link"><span class="nav-icon">🏠</span>Dashboard</div>
+          <div class="nav-link"><span class="nav-icon">👥</span>Users & Mechanics</div>
+          <div class="nav-link active"><span class="nav-icon">📋</span>Document Verify<span class="nav-badge">5</span></div>
+          <div class="nav-link"><span class="nav-icon">💬</span>Complaints<span class="nav-badge">3</span></div>
+          <div class="nav-link"><span class="nav-icon">📊</span>Analytics</div>
+          <div class="nav-link"><span class="nav-icon">🛡️</span>Fraud Alerts</div>
+        </div>
+        <div class="sidebar-footer">
+          <div class="admin-profile"><div class="admin-ava">👩</div><div><div class="admin-name">Admin</div><div class="admin-role">Super Admin</div></div></div>
+        </div>
+      </div>
+      <div class="main-content">
+        <div class="topbar">
+          <div>
+            <div class="page-title">Document Verification</div>
+            <div style="color:var(--gray);font-size:13px;margin-top:2px">5 pending · 142 approved · 8 rejected</div>
+          </div>
+          <div class="topbar-actions">
+            <div class="search-box">🔍 <span>Search mechanic name...</span></div>
+          </div>
+        </div>
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card orange"><div class="stat-icon">⏳</div><div class="stat-value">5</div><div class="stat-label">Pending Review</div></div>
+          <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-value">142</div><div class="stat-label">Approved</div></div>
+          <div class="stat-card"><div class="stat-icon" style="color:var(--red)">❌</div><div class="stat-value">8</div><div class="stat-label">Rejected</div></div>
+          <div class="stat-card blue"><div class="stat-icon">⏱️</div><div class="stat-value">18h</div><div class="stat-label">Avg Review Time</div></div>
+        </div>
+        <div class="table-card">
+          <div class="table-header">
+            <span class="table-title">Pending Verifications</span>
+            <div class="filters">
+              <div class="filter-chip active">Pending (5)</div>
+              <div class="filter-chip">All</div>
+              <div class="filter-chip">Approved</div>
+              <div class="filter-chip">Rejected</div>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Mechanic</th><th>Submitted</th><th>CNIC</th><th>License</th><th>Certificate</th><th>Workshop</th><th>Actions</th>
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="user-cell"><div class="table-avatar" style="background:rgba(249,115,22,0.15)">🔧</div><div><div class="user-name">Kamran Malik</div><div class="user-email">Lahore, Punjab</div></div></div></td>
+                <td style="color:var(--lightgray)">2 hours ago</td>
+                <td><span class="badge badge-green">✓ Uploaded</span></td>
+                <td><span class="badge badge-green">✓ Uploaded</span></td>
+                <td><span class="badge badge-orange">Pending</span></td>
+                <td><span class="badge badge-gray">Missing</span></td>
+                <td><div class="action-btns"><button class="action-btn view">Review</button><button class="action-btn approve">Approve</button><button class="action-btn reject">Reject</button></div></td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="table-avatar" style="background:rgba(249,115,22,0.15)">🔧</div><div><div class="user-name">Tariq Mehmood</div><div class="user-email">Karachi, Sindh</div></div></div></td>
+                <td style="color:var(--lightgray)">5 hours ago</td>
+                <td><span class="badge badge-green">✓ Uploaded</span></td>
+                <td><span class="badge badge-green">✓ Uploaded</span></td>
+                <td><span class="badge badge-green">✓ Uploaded</span></td>
+                <td><span class="badge badge-green">✓ Uploaded</span></td>
+                <td><div class="action-btns"><button class="action-btn view">Review</button><button class="action-btn approve">Approve</button><button class="action-btn reject">Reject</button></div></td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="table-avatar" style="background:rgba(249,115,22,0.15)">🔧</div><div><div class="user-name">Asif Raza</div><div class="user-email">Islamabad, ICT</div></div></div></td>
+                <td style="color:var(--lightgray)">Yesterday</td>
+                <td><span class="badge badge-red">✗ Unclear</span></td>
+                <td><span class="badge badge-green">✓ Uploaded</span></td>
+                <td><span class="badge badge-gray">Missing</span></td>
+                <td><span class="badge badge-gray">Missing</span></td>
+                <td><div class="action-btns"><button class="action-btn view">Review</button><button class="action-btn reject">Reject</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Document preview area -->
+        <div class="two-cols">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px">
+            <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--white);margin-bottom:14px">Document Preview — Tariq Mehmood</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center">
+                <div style="font-size:32px;margin-bottom:6px">🪪</div>
+                <div style="color:var(--white);font-size:12px;font-weight:600">CNIC Front</div>
+                <div style="color:var(--green);font-size:11px;margin-top:4px">✓ Clear</div>
+              </div>
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center">
+                <div style="font-size:32px;margin-bottom:6px">🪪</div>
+                <div style="color:var(--white);font-size:12px;font-weight:600">CNIC Back</div>
+                <div style="color:var(--green);font-size:11px;margin-top:4px">✓ Clear</div>
+              </div>
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center">
+                <div style="font-size:32px;margin-bottom:6px">📜</div>
+                <div style="color:var(--white);font-size:12px;font-weight:600">Mechanic Cert</div>
+                <div style="color:var(--green);font-size:11px;margin-top:4px">✓ Valid</div>
+              </div>
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center">
+                <div style="font-size:32px;margin-bottom:6px">🏪</div>
+                <div style="color:var(--white);font-size:12px;font-weight:600">Workshop Permit</div>
+                <div style="color:var(--green);font-size:11px;margin-top:4px">#88392-XJ</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px">
+              <button style="flex:1;background:var(--green);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">✓ Approve Mechanic</button>
+              <button style="flex:1;background:transparent;color:var(--red);border:1.5px solid rgba(239,68,68,0.3);border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">✗ Reject & Notify</button>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px">
+            <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--white);margin-bottom:14px">Rejection Notes</div>
+            <div style="background:var(--navy);border:1.5px solid var(--border);border-radius:10px;padding:14px;color:var(--gray);font-size:13px;min-height:80px;margin-bottom:12px">Document is blurry. Please re-upload a clear photo of your CNIC...</div>
+            <div style="color:var(--white);font-size:13px;font-weight:600;margin-bottom:8px">Notify Mechanic</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="display:flex;align-items:center;gap:8px;color:var(--lightgray);font-size:12px;cursor:pointer"><input type="checkbox" checked style="accent-color:var(--blue)"> Send SMS notification</label>
+              <label style="display:flex;align-items:center;gap:8px;color:var(--lightgray);font-size:12px;cursor:pointer"><input type="checkbox" checked style="accent-color:var(--blue)"> Send in-app notification</label>
+              <label style="display:flex;align-items:center;gap:8px;color:var(--lightgray);font-size:12px;cursor:pointer"><input type="checkbox" style="accent-color:var(--blue)"> Send email</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 25: REPORTS & ANALYTICS -->
+<div class="screen-wrap">
+  <div class="screen-label">25 · Reports & Analytics</div>
+  <div class="desktop">
+    <div class="titlebar">
+      <div class="titlebar-dot" style="background:#FF5F57"></div>
+      <div class="titlebar-dot" style="background:#FFBC2E"></div>
+      <div class="titlebar-dot" style="background:#28C840"></div>
+      <div class="titlebar-url">admin.onraasta.pk/analytics</div>
+    </div>
+    <div class="app-shell">
+      <div class="sidebar">
+        <div class="sidebar-logo"><div class="sidebar-logo-text">On<span>Raasta</span></div><div style="color:var(--gray);font-size:11px;margin-top:2px">Admin Panel</div></div>
+        <div class="nav-section">
+          <div class="nav-section-label">Main</div>
+          <div class="nav-link"><span class="nav-icon">🏠</span>Dashboard</div>
+          <div class="nav-link"><span class="nav-icon">👥</span>Users & Mechanics</div>
+          <div class="nav-link"><span class="nav-icon">📋</span>Document Verify<span class="nav-badge">5</span></div>
+          <div class="nav-link"><span class="nav-icon">💬</span>Complaints<span class="nav-badge">3</span></div>
+          <div class="nav-link active"><span class="nav-icon">📊</span>Analytics</div>
+          <div class="nav-link"><span class="nav-icon">🛡️</span>Fraud Alerts</div>
+        </div>
+        <div class="sidebar-footer">
+          <div class="admin-profile"><div class="admin-ava">👩</div><div><div class="admin-name">Admin</div><div class="admin-role">Super Admin</div></div></div>
+        </div>
+      </div>
+      <div class="main-content">
+        <div class="topbar">
+          <div><div class="page-title">Reports & Analytics</div><div style="color:var(--gray);font-size:13px;margin-top:2px">Platform performance overview</div></div>
+          <div class="topbar-actions">
+            <div style="display:flex;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+              <div style="padding:8px 14px;background:rgba(37,99,235,0.15);color:#60A5FA;font-size:13px;font-weight:600">Today</div>
+              <div style="padding:8px 14px;color:var(--gray);font-size:13px">This Week</div>
+              <div style="padding:8px 14px;color:var(--gray);font-size:13px">This Month</div>
+            </div>
+            <button class="btn-sm btn-blue">↓ Export Report</button>
+          </div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card blue"><div class="stat-icon">💼</div><div class="stat-value">1,240</div><div class="stat-label">Total Jobs</div><div class="stat-delta delta-up">↑ +12% vs last week</div></div>
+          <div class="stat-card green"><div class="stat-icon">💰</div><div class="stat-value">PKR 45k</div><div class="stat-label">Platform Revenue</div><div class="stat-delta delta-up">↑ +15%</div></div>
+          <div class="stat-card orange"><div class="stat-icon">⏱️</div><div class="stat-value">11 min</div><div class="stat-label">Avg Response Time</div><div class="stat-delta delta-up">↓ Improved -3min</div></div>
+          <div class="stat-card purple"><div class="stat-icon">⭐</div><div class="stat-value">4.7</div><div class="stat-label">Avg Service Rating</div><div class="stat-delta delta-up">↑ +0.2</div></div>
+        </div>
+        <div class="two-cols">
+          <!-- Jobs chart -->
+          <div class="table-card">
+            <div class="table-header"><span class="table-title">Weekly Jobs Trend</span><div class="filters"><div class="filter-chip active">Jobs</div><div class="filter-chip">Revenue</div><div class="filter-chip">Users</div></div></div>
+            <div class="chart-area">
+              <div class="chart-bars">
+                <div class="bar" style="height:40px;background:rgba(37,99,235,0.3)"></div>
+                <div class="bar" style="height:55px;background:rgba(37,99,235,0.4)"></div>
+                <div class="bar" style="height:48px;background:rgba(37,99,235,0.35)"></div>
+                <div class="bar" style="height:70px;background:rgba(37,99,235,0.5)"></div>
+                <div class="bar" style="height:60px;background:rgba(37,99,235,0.45)"></div>
+                <div class="bar" style="height:82px;background:rgba(37,99,235,0.6)"></div>
+                <div class="bar" style="height:100px;background:var(--blue)"></div>
+              </div>
+              <div class="chart-labels">
+                <div class="chart-label">Mon</div><div class="chart-label">Tue</div><div class="chart-label">Wed</div><div class="chart-label">Thu</div><div class="chart-label">Fri</div><div class="chart-label">Sat</div><div class="chart-label">Sun</div>
+              </div>
+            </div>
+          </div>
+          <!-- Fault breakdown -->
+          <div class="table-card">
+            <div class="table-header"><span class="table-title">AI Diagnosis Breakdown</span></div>
+            <div style="padding:20px;display:flex;gap:20px;align-items:center">
+              <div class="donut-chart"><div class="donut-hole"><div style="color:var(--white);font-size:13px;font-weight:700;text-align:center;font-family:'Syne',sans-serif">1,240<br><span style="font-size:10px;color:var(--gray);font-weight:400">jobs</span></div></div></div>
+              <div style="flex:1">
+                <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div><span class="legend-label">Engine Overheat</span><span class="legend-val">34%</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div><span class="legend-label">Battery Failure</span><span class="legend-val">20%</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div><span class="legend-label">Flat Tire</span><span class="legend-val">15%</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div><span class="legend-label">Brake System</span><span class="legend-val">11%</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:var(--gray)"></div><span class="legend-label">Other</span><span class="legend-val">20%</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Top mechanics table -->
+        <div class="table-card">
+          <div class="table-header"><span class="table-title">Top Performing Mechanics</span><span style="color:var(--blue);font-size:12px;cursor:pointer">View All →</span></div>
+          <table>
+            <thead><tr><th>Mechanic</th><th>Location</th><th>Jobs</th><th>Rating</th><th>Revenue</th><th>Avg Response</th></tr></thead>
+            <tbody>
+              <tr><td><div class="user-cell"><div class="table-avatar" style="background:rgba(249,115,22,0.15)">🔧</div><div><div class="user-name">Ali Khan</div><div class="user-email">Engine Specialist</div></div></div></td><td>Lahore</td><td style="color:var(--white);font-weight:600">142</td><td style="color:#F59E0B;font-weight:600">★ 4.9</td><td style="color:var(--green);font-weight:600">PKR 142k</td><td>8 min</td></tr>
+              <tr><td><div class="user-cell"><div class="table-avatar" style="background:rgba(249,115,22,0.15)">🔧</div><div><div class="user-name">Bilal Ahmed</div><div class="user-email">General Mechanic</div></div></div></td><td>Karachi</td><td style="color:var(--white);font-weight:600">89</td><td style="color:#F59E0B;font-weight:600">★ 4.5</td><td style="color:var(--green);font-weight:600">PKR 89k</td><td>14 min</td></tr>
+              <tr><td><div class="user-cell"><div class="table-avatar" style="background:rgba(249,115,22,0.15)">🔧</div><div><div class="user-name">Faisal Ahmed</div><div class="user-email">Brake Specialist</div></div></div></td><td>Islamabad</td><td style="color:var(--white);font-weight:600">42</td><td style="color:#F59E0B;font-weight:600">★ 4.8</td><td style="color:var(--green);font-weight:600">PKR 58k</td><td>10 min</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 26: COMPLAINTS & DISPUTES -->
+<div class="screen-wrap">
+  <div class="screen-label">26 · Complaints & Dispute Resolution</div>
+  <div class="desktop">
+    <div class="titlebar">
+      <div class="titlebar-dot" style="background:#FF5F57"></div>
+      <div class="titlebar-dot" style="background:#FFBC2E"></div>
+      <div class="titlebar-dot" style="background:#28C840"></div>
+      <div class="titlebar-url">admin.onraasta.pk/complaints</div>
+    </div>
+    <div class="app-shell">
+      <div class="sidebar">
+        <div class="sidebar-logo"><div class="sidebar-logo-text">On<span>Raasta</span></div><div style="color:var(--gray);font-size:11px;margin-top:2px">Admin Panel</div></div>
+        <div class="nav-section">
+          <div class="nav-section-label">Main</div>
+          <div class="nav-link"><span class="nav-icon">🏠</span>Dashboard</div>
+          <div class="nav-link"><span class="nav-icon">👥</span>Users & Mechanics</div>
+          <div class="nav-link"><span class="nav-icon">📋</span>Document Verify<span class="nav-badge">5</span></div>
+          <div class="nav-link active"><span class="nav-icon">💬</span>Complaints<span class="nav-badge">3</span></div>
+          <div class="nav-link"><span class="nav-icon">📊</span>Analytics</div>
+          <div class="nav-link"><span class="nav-icon">🛡️</span>Fraud Alerts</div>
+        </div>
+        <div class="sidebar-footer">
+          <div class="admin-profile"><div class="admin-ava">👩</div><div><div class="admin-name">Admin</div><div class="admin-role">Super Admin</div></div></div>
+        </div>
+      </div>
+      <div class="main-content">
+        <div class="topbar">
+          <div><div class="page-title">Complaints & Disputes</div><div style="color:var(--gray);font-size:13px;margin-top:2px">3 open · 2 in review · 45 resolved</div></div>
+          <div class="topbar-actions"><div class="search-box">🔍 <span>Search complaints...</span></div></div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card red"><div class="stat-icon">🆕</div><div class="stat-value">3</div><div class="stat-label">Open Complaints</div></div>
+          <div class="stat-card orange"><div class="stat-icon">🔄</div><div class="stat-value">2</div><div class="stat-label">In Review</div></div>
+          <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-value">45</div><div class="stat-label">Resolved</div></div>
+          <div class="stat-card blue"><div class="stat-icon">⏱️</div><div class="stat-value">4.2h</div><div class="stat-label">Avg Resolution Time</div></div>
+        </div>
+        <div class="two-cols">
+          <!-- Complaint list -->
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--white);margin-bottom:12px">Active Complaints</div>
+            <div class="dispute-card">
+              <div class="dispute-item" style="background:rgba(239,68,68,0.03)">
+                <div class="priority-dot priority-high"></div>
+                <div class="dispute-icon" style="background:rgba(239,68,68,0.1)">🚨</div>
+                <div class="dispute-body">
+                  <div class="dispute-title">Overcharging — Ahmad Raza vs Ali Khan</div>
+                  <div class="dispute-meta">Job #1240 · 2 hours ago · <span class="badge badge-red">High Priority</span></div>
+                  <div class="dispute-desc">"Mechanic charged PKR 12,000 but agreed bid was PKR 6,500. Refusing to refund the difference."</div>
+                </div>
+                <button class="action-btn view" style="flex-shrink:0">Open →</button>
+              </div>
+              <div class="dispute-item">
+                <div class="priority-dot priority-med"></div>
+                <div class="dispute-icon" style="background:rgba(245,158,11,0.1)">⚠️</div>
+                <div class="dispute-body">
+                  <div class="dispute-title">No-show complaint — Sara Khan vs Usman Motors</div>
+                  <div class="dispute-meta">Job #1235 · 5 hours ago · <span class="badge badge-orange">Medium</span></div>
+                  <div class="dispute-desc">"Mechanic accepted job then went offline without cancelling. User was stranded for 45 minutes."</div>
+                </div>
+                <button class="action-btn view" style="flex-shrink:0">Open →</button>
+              </div>
+              <div class="dispute-item">
+                <div class="priority-dot priority-low"></div>
+                <div class="dispute-icon" style="background:rgba(34,197,94,0.1)">💬</div>
+                <div class="dispute-body">
+                  <div class="dispute-title">Rating dispute — Bilal Hussain</div>
+                  <div class="dispute-meta">Job #1220 · Yesterday · <span class="badge badge-green">Low</span></div>
+                  <div class="dispute-desc">"Mechanic claims 1-star review is unfair. Requesting review removal."</div>
+                </div>
+                <button class="action-btn view" style="flex-shrink:0">Open →</button>
+              </div>
+            </div>
+          </div>
+          <!-- Complaint detail -->
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--white);margin-bottom:12px">Complaint Detail</div>
+            <div style="background:var(--card);border:1.5px solid rgba(239,68,68,0.2);border-radius:14px;padding:20px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div><div style="color:var(--white);font-size:14px;font-weight:600">Job #1240 — Overcharging</div><div style="color:var(--gray);font-size:12px;margin-top:2px">Opened 2 hours ago</div></div>
+                <span class="badge badge-red">🔴 Open</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+                <div style="background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:12px">
+                  <div style="color:var(--gray);font-size:11px;font-weight:600;margin-bottom:4px">COMPLAINANT</div>
+                  <div style="color:var(--white);font-size:13px;font-weight:600">Ahmad Raza (User)</div>
+                  <div style="color:var(--gray);font-size:11px">Job agreed: PKR 6,500</div>
+                </div>
+                <div style="background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:12px">
+                  <div style="color:var(--gray);font-size:11px;font-weight:600;margin-bottom:4px">RESPONDENT</div>
+                  <div style="color:var(--white);font-size:13px;font-weight:600">Ali Khan (Mechanic)</div>
+                  <div style="color:var(--gray);font-size:11px">Charged: PKR 12,000</div>
+                </div>
+              </div>
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
+                <div style="color:var(--gray);font-size:11px;font-weight:600;margin-bottom:4px">EVIDENCE</div>
+                <div style="display:flex;gap:8px">
+                  <div style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.2);border-radius:8px;padding:8px 12px;color:#60A5FA;font-size:12px">📸 Screenshot.jpg</div>
+                  <div style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.2);border-radius:8px;padding:8px 12px;color:#60A5FA;font-size:12px">💬 Chat Log</div>
+                </div>
+              </div>
+              <div style="color:var(--white);font-size:13px;font-weight:600;margin-bottom:8px">Admin Resolution Note</div>
+              <div style="background:var(--navy);border:1.5px solid var(--border);border-radius:10px;padding:12px;color:var(--gray);font-size:12px;min-height:60px;margin-bottom:12px">Issue confirmed by chat logs. Mechanic to be penalized and user compensated...</div>
+              <div style="display:flex;gap:8px">
+                <button style="flex:1;background:var(--green);color:white;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">✓ Resolve & Notify</button>
+                <button style="flex:1;background:rgba(139,92,246,0.15);color:#A78BFA;border:1.5px solid rgba(139,92,246,0.3);border-radius:10px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">↑ Escalate</button>
+                <button style="flex:1;background:rgba(239,68,68,0.1);color:var(--red);border:1.5px solid rgba(239,68,68,0.3);border-radius:10px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">🚫 Suspend</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 27: IOT IMPLEMENTATION -->
+<div class="screen-wrap">
+  <div class="screen-label">27 · IoT Implementation — OBD-II Live Monitor</div>
+  <div class="desktop">
+    <div class="titlebar">
+      <div class="titlebar-dot" style="background:#FF5F57"></div>
+      <div class="titlebar-dot" style="background:#FFBC2E"></div>
+      <div class="titlebar-dot" style="background:#28C840"></div>
+      <div class="titlebar-url">admin.onraasta.pk/iot-monitor</div>
+    </div>
+    <div class="app-shell">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <div class="sidebar-logo-text">On<span>Raasta</span></div>
+          <div style="color:var(--gray);font-size:11px;margin-top:2px">Admin Panel</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Main</div>
+          <div class="nav-link"><div class="nav-icon">🏠</div>Dashboard</div>
+          <div class="nav-link"><div class="nav-icon">👥</div>Users</div>
+          <div class="nav-link"><div class="nav-icon">🔧</div>Mechanics</div>
+          <div class="nav-link"><div class="nav-icon">📋</div>Jobs</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Analytics</div>
+          <div class="nav-link"><div class="nav-icon">📊</div>Reports</div>
+          <div class="nav-link"><div class="nav-icon">🛡</div>Fraud & Alerts</div>
+          <div class="nav-link active"><div class="nav-icon">📡</div>IoT Monitor</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">System</div>
+          <div class="nav-link"><div class="nav-icon">⚙️</div>Config</div>
+        </div>
+        <div class="sidebar-footer">
+          <div class="admin-profile">
+            <div class="admin-ava">👩</div>
+            <div><div class="admin-name">Admin</div><div class="admin-role">Super Admin</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main content -->
+      <div class="main-content">
+        <div class="topbar">
+          <div>
+            <div class="page-title">IoT Implementation — OBD-II Live Monitor</div>
+            <div style="color:var(--gray);font-size:13px;margin-top:2px">Real-time vehicle telemetry via OBD-II dongle · 38 devices connected</div>
+          </div>
+          <div class="topbar-actions">
+            <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:6px">
+              <div style="width:8px;height:8px;background:var(--green);border-radius:50%"></div>
+              <span style="color:var(--green);font-size:12px;font-weight:600">Live Feed Active</span>
+            </div>
+            <div style="background:var(--blue);color:white;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600">+ Add Device</div>
+          </div>
+        </div>
+
+        <!-- How IoT Works Banner -->
+        <div style="background:linear-gradient(135deg,rgba(37,99,235,0.12),rgba(139,92,246,0.08));border:1px solid rgba(37,99,235,0.2);border-radius:16px;padding:18px;margin-bottom:20px;display:flex;align-items:center;gap:20px">
+          <div style="font-size:36px">📡</div>
+          <div style="flex:1">
+            <div style="color:var(--white);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:4px">How OnRaasta IoT Works</div>
+            <div style="color:var(--lightgray);font-size:12px;line-height:1.6">A compact <strong style="color:white">OBD-II Bluetooth dongle</strong> plugs into the vehicle's diagnostic port. It reads engine codes (DTCs), live sensor data (RPM, coolant temp, battery voltage), and transmits in real-time to the OnRaasta app via BLE. The AI engine cross-references codes with our fault database to auto-suggest diagnosis before the mechanic even arrives.</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+            <div style="text-align:center;padding:10px 14px;background:rgba(37,99,235,0.12);border-radius:10px;font-size:11px;color:var(--lightgray)">🔌<br><strong style="color:white">OBD-II</strong><br>Plug</div>
+            <div style="color:var(--gray);font-size:18px">→</div>
+            <div style="text-align:center;padding:10px 14px;background:rgba(37,99,235,0.12);border-radius:10px;font-size:11px;color:var(--lightgray)">📶<br><strong style="color:white">BLE</strong><br>Signal</div>
+            <div style="color:var(--gray);font-size:18px">→</div>
+            <div style="text-align:center;padding:10px 14px;background:rgba(37,99,235,0.12);border-radius:10px;font-size:11px;color:var(--lightgray)">📱<br><strong style="color:white">App</strong><br>Parse</div>
+            <div style="color:var(--gray);font-size:18px">→</div>
+            <div style="text-align:center;padding:10px 14px;background:rgba(139,92,246,0.12);border-radius:10px;font-size:11px;color:var(--lightgray)">🤖<br><strong style="color:white">AI</strong><br>Diagnose</div>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:4px">🔌</div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--white)">38</div>
+            <div style="color:var(--gray);font-size:11px;margin-top:2px">Devices Online</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:4px">⚠️</div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--yellow)">7</div>
+            <div style="color:var(--gray);font-size:11px;margin-top:2px">Active DTC Codes</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:4px">🌡️</div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--red)">3</div>
+            <div style="color:var(--gray);font-size:11px;margin-top:2px">Overheat Alerts</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:4px">🔋</div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--orange)">5</div>
+            <div style="color:var(--gray);font-size:11px;margin-top:2px">Battery Warnings</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center">
+            <div style="font-size:20px;margin-bottom:4px">✅</div>
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--green)">23</div>
+            <div style="color:var(--gray);font-size:11px;margin-top:2px">Auto-Diagnosed</div>
+          </div>
+        </div>
+
+        <!-- Main grid: Live Telemetry + Device List -->
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:20px">
+          <!-- Live telemetry panel -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div style="color:var(--white);font-family:'Syne',sans-serif;font-size:15px;font-weight:700">Live Vehicle Telemetry</div>
+              <div style="display:flex;align-items:center;gap:6px;background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.2);border-radius:8px;padding:5px 10px">
+                <span style="color:#60A5FA;font-size:12px">Honda Civic #JK-452</span>
+              </div>
+            </div>
+            <!-- Gauge row -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+              <!-- RPM -->
+              <div style="background:#0a1628;border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center">
+                <div style="color:var(--gray);font-size:10px;margin-bottom:6px;font-weight:600">ENGINE RPM</div>
+                <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--orange)">2,450</div>
+                <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:4px;margin-top:8px"><div style="width:40%;height:100%;background:var(--orange);border-radius:4px"></div></div>
+              </div>
+              <!-- Coolant Temp -->
+              <div style="background:#0a1628;border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:14px;text-align:center">
+                <div style="color:var(--gray);font-size:10px;margin-bottom:6px;font-weight:600">COOLANT °C</div>
+                <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--red)">102°</div>
+                <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:4px;margin-top:8px"><div style="width:85%;height:100%;background:var(--red);border-radius:4px"></div></div>
+                <div style="color:var(--red);font-size:9px;margin-top:4px;font-weight:700">⚠ HIGH</div>
+              </div>
+              <!-- Battery V -->
+              <div style="background:#0a1628;border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center">
+                <div style="color:var(--gray);font-size:10px;margin-bottom:6px;font-weight:600">BATTERY V</div>
+                <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--yellow)">12.1V</div>
+                <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:4px;margin-top:8px"><div style="width:55%;height:100%;background:var(--yellow);border-radius:4px"></div></div>
+              </div>
+              <!-- Speed -->
+              <div style="background:#0a1628;border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center">
+                <div style="color:var(--gray);font-size:10px;margin-bottom:6px;font-weight:600">SPEED km/h</div>
+                <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--green)">0</div>
+                <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:4px;margin-top:8px"><div style="width:0%;height:100%;background:var(--green);border-radius:4px"></div></div>
+              </div>
+            </div>
+            <!-- Active DTC Codes -->
+            <div style="color:var(--white);font-size:13px;font-weight:600;margin-bottom:10px">Active Fault Codes (DTCs)</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="background:#0a1628;border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px">
+                <div style="background:rgba(239,68,68,0.12);border-radius:8px;padding:6px 10px;color:var(--red);font-size:12px;font-weight:700;font-family:'Courier New',monospace">P0217</div>
+                <div style="flex:1"><div style="color:var(--white);font-size:12px;font-weight:600">Engine Coolant Over Temperature</div><div style="color:var(--gray);font-size:11px;margin-top:2px">AI → Likely radiator blockage or thermostat failure</div></div>
+                <div style="background:rgba(239,68,68,0.1);color:var(--red);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700">CRITICAL</div>
+              </div>
+              <div style="background:#0a1628;border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px">
+                <div style="background:rgba(245,158,11,0.1);border-radius:8px;padding:6px 10px;color:var(--yellow);font-size:12px;font-weight:700;font-family:'Courier New',monospace">P0562</div>
+                <div style="flex:1"><div style="color:var(--white);font-size:12px;font-weight:600">System Voltage Low</div><div style="color:var(--gray);font-size:11px;margin-top:2px">AI → Battery aging or alternator issue</div></div>
+                <div style="background:rgba(245,158,11,0.1);color:var(--yellow);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700">WARNING</div>
+              </div>
+              <div style="background:#0a1628;border:1px solid rgba(139,92,246,0.2);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px">
+                <div style="background:rgba(139,92,246,0.1);border-radius:8px;padding:6px 10px;color:var(--purple);font-size:12px;font-weight:700;font-family:'Courier New',monospace">P0420</div>
+                <div style="flex:1"><div style="color:var(--white);font-size:12px;font-weight:600">Catalyst Efficiency Below Threshold</div><div style="color:var(--gray);font-size:11px;margin-top:2px">AI → Catalytic converter wear detected</div></div>
+                <div style="background:rgba(139,92,246,0.1);color:var(--purple);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700">MODERATE</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Connected Devices List -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <div style="color:var(--white);font-family:'Syne',sans-serif;font-size:15px;font-weight:700">Connected OBD Devices</div>
+              <div style="color:var(--gray);font-size:12px">38 total</div>
+            </div>
+            <!-- Device table header -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;padding:6px 10px;margin-bottom:4px">
+              <div style="color:var(--gray);font-size:10px;font-weight:700;letter-spacing:0.5px">VEHICLE</div>
+              <div style="color:var(--gray);font-size:10px;font-weight:700;letter-spacing:0.5px">STATUS</div>
+              <div style="color:var(--gray);font-size:10px;font-weight:700;letter-spacing:0.5px">SIGNAL</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <!-- Device rows -->
+              <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;background:#0a1628;border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:10px">
+                <div><div style="color:var(--white);font-size:12px;font-weight:600">Honda Civic</div><div style="color:var(--gray);font-size:10px">#JK-452</div></div>
+                <div style="display:flex;align-items:center"><div style="background:rgba(239,68,68,0.1);color:var(--red);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700">⚠ 2 DTCs</div></div>
+                <div style="display:flex;align-items:center;gap:3px">
+                  <div style="width:4px;height:8px;background:var(--green);border-radius:1px"></div>
+                  <div style="width:4px;height:12px;background:var(--green);border-radius:1px"></div>
+                  <div style="width:4px;height:16px;background:var(--green);border-radius:1px"></div>
+                  <div style="width:4px;height:20px;background:var(--green);border-radius:1px"></div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;background:#0a1628;border:1px solid var(--border);border-radius:10px;padding:10px">
+                <div><div style="color:var(--white);font-size:12px;font-weight:600">Toyota Corolla</div><div style="color:var(--gray);font-size:10px">#LM-881</div></div>
+                <div style="display:flex;align-items:center"><div style="background:rgba(34,197,94,0.1);color:var(--green);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700">✓ Normal</div></div>
+                <div style="display:flex;align-items:center;gap:3px">
+                  <div style="width:4px;height:8px;background:var(--green);border-radius:1px"></div>
+                  <div style="width:4px;height:12px;background:var(--green);border-radius:1px"></div>
+                  <div style="width:4px;height:16px;background:var(--green);border-radius:1px"></div>
+                  <div style="width:4px;height:20px;background:rgba(255,255,255,0.1);border-radius:1px"></div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;background:#0a1628;border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:10px">
+                <div><div style="color:var(--white);font-size:12px;font-weight:600">Suzuki Cultus</div><div style="color:var(--gray);font-size:10px">#RZ-119</div></div>
+                <div style="display:flex;align-items:center"><div style="background:rgba(245,158,11,0.1);color:var(--yellow);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700">⚡ Low Batt</div></div>
+                <div style="display:flex;align-items:center;gap:3px">
+                  <div style="width:4px;height:8px;background:var(--yellow);border-radius:1px"></div>
+                  <div style="width:4px;height:12px;background:var(--yellow);border-radius:1px"></div>
+                  <div style="width:4px;height:16px;background:rgba(255,255,255,0.1);border-radius:1px"></div>
+                  <div style="width:4px;height:20px;background:rgba(255,255,255,0.1);border-radius:1px"></div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;background:#0a1628;border:1px solid var(--border);border-radius:10px;padding:10px">
+                <div><div style="color:var(--white);font-size:12px;font-weight:600">Honda City</div><div style="color:var(--gray);font-size:10px">#PQ-774</div></div>
+                <div style="display:flex;align-items:center"><div style="background:rgba(34,197,94,0.1);color:var(--green);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700">✓ Normal</div></div>
+                <div style="display:flex;align-items:center;gap:3px">
+                  <div style="width:4px;height:8px;background:var(--green);border-radius:1px"></div>
+                  <div style="width:4px;height:12px;background:var(--green);border-radius:1px"></div>
+                  <div style="width:4px;height:16px;background:var(--green);border-radius:1px"></div>
+                  <div style="width:4px;height:20px;background:var(--green);border-radius:1px"></div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;background:#0a1628;border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:10px">
+                <div><div style="color:var(--white);font-size:12px;font-weight:600">Ford F-150</div><div style="color:var(--gray);font-size:10px">#FD-033</div></div>
+                <div style="display:flex;align-items:center"><div style="background:rgba(239,68,68,0.1);color:var(--red);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700">🌡 Overheat</div></div>
+                <div style="display:flex;align-items:center;gap:3px">
+                  <div style="width:4px;height:8px;background:var(--red);border-radius:1px"></div>
+                  <div style="width:4px;height:12px;background:var(--red);border-radius:1px"></div>
+                  <div style="width:4px;height:16px;background:var(--red);border-radius:1px"></div>
+                  <div style="width:4px;height:20px;background:var(--red);border-radius:1px"></div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:10px;text-align:center;color:var(--blue);font-size:12px;font-weight:600">View all 38 devices →</div>
+          </div>
+        </div>
+
+        <!-- Bottom: IoT Auto-Dispatch flow -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+          <div style="color:var(--white);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px">IoT Auto-Dispatch Flow — Honda Civic #JK-452</div>
+          <div style="display:flex;align-items:center;gap:8px;overflow-x:auto;padding-bottom:4px">
+            <!-- Step 1 -->
+            <div style="flex-shrink:0;background:#0a1628;border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:14px;width:160px">
+              <div style="font-size:22px;margin-bottom:6px">🔌</div>
+              <div style="color:var(--red);font-size:11px;font-weight:700;margin-bottom:4px">STEP 1</div>
+              <div style="color:var(--white);font-size:12px;font-weight:600">OBD-II Detects P0217</div>
+              <div style="color:var(--gray);font-size:11px;margin-top:4px">Coolant temp 102°C triggers critical fault code</div>
+            </div>
+            <div style="color:var(--gray);font-size:20px;flex-shrink:0">→</div>
+            <!-- Step 2 -->
+            <div style="flex-shrink:0;background:#0a1628;border:1px solid rgba(139,92,246,0.3);border-radius:12px;padding:14px;width:160px">
+              <div style="font-size:22px;margin-bottom:6px">📶</div>
+              <div style="color:var(--purple);font-size:11px;font-weight:700;margin-bottom:4px">STEP 2</div>
+              <div style="color:var(--white);font-size:12px;font-weight:600">BLE → App Sync</div>
+              <div style="color:var(--gray);font-size:11px;margin-top:4px">Dongle pushes DTC + sensor snapshot to OnRaasta app</div>
+            </div>
+            <div style="color:var(--gray);font-size:20px;flex-shrink:0">→</div>
+            <!-- Step 3 -->
+            <div style="flex-shrink:0;background:#0a1628;border:1px solid rgba(249,115,22,0.3);border-radius:12px;padding:14px;width:160px">
+              <div style="font-size:22px;margin-bottom:6px">🤖</div>
+              <div style="color:var(--orange);font-size:11px;font-weight:700;margin-bottom:4px">STEP 3</div>
+              <div style="color:var(--white);font-size:12px;font-weight:600">AI Diagnosis</div>
+              <div style="color:var(--gray);font-size:11px;margin-top:4px">Model maps P0217 → Radiator Leak, estimates PKR 5k–8k</div>
+            </div>
+            <div style="color:var(--gray);font-size:20px;flex-shrink:0">→</div>
+            <!-- Step 4 -->
+            <div style="flex-shrink:0;background:#0a1628;border:1px solid rgba(37,99,235,0.3);border-radius:12px;padding:14px;width:160px">
+              <div style="font-size:22px;margin-bottom:6px">🔔</div>
+              <div style="color:var(--blue);font-size:11px;font-weight:700;margin-bottom:4px">STEP 4</div>
+              <div style="color:var(--white);font-size:12px;font-weight:600">User Notified</div>
+              <div style="color:var(--gray);font-size:11px;margin-top:4px">Push notification with diagnosis + "Request Help Now" CTA</div>
+            </div>
+            <div style="color:var(--gray);font-size:20px;flex-shrink:0">→</div>
+            <!-- Step 5 -->
+            <div style="flex-shrink:0;background:#0a1628;border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:14px;width:160px">
+              <div style="font-size:22px;margin-bottom:6px">🔧</div>
+              <div style="color:var(--green);font-size:11px;font-weight:700;margin-bottom:4px">STEP 5</div>
+              <div style="color:var(--white);font-size:12px;font-weight:600">Mechanic Dispatched</div>
+              <div style="color:var(--gray);font-size:11px;margin-top:4px">Nearest engine specialist auto-notified with full DTC report</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

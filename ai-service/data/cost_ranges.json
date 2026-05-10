@@ -1,0 +1,14 @@
+{
+  "flat_tire":           {"min_pkr": 500,  "max_pkr": 1500,  "skill_required": "Tyre Specialist"},
+  "dead_battery":        {"min_pkr": 800,  "max_pkr": 3000,  "skill_required": "Auto Electrician"},
+  "engine_overheating":  {"min_pkr": 2000, "max_pkr": 15000, "skill_required": "Engine Specialist"},
+  "oil_leak":            {"min_pkr": 1000, "max_pkr": 8000,  "skill_required": "General Mechanic"},
+  "brake_failure":       {"min_pkr": 2000, "max_pkr": 12000, "skill_required": "Brake Specialist"},
+  "transmission_issue":  {"min_pkr": 5000, "max_pkr": 50000, "skill_required": "Transmission Specialist"},
+  "electrical_fault":    {"min_pkr": 1000, "max_pkr": 10000, "skill_required": "Auto Electrician"},
+  "fuel_problem":        {"min_pkr": 500,  "max_pkr": 5000,  "skill_required": "General Mechanic"},
+  "ac_fault":            {"min_pkr": 2000, "max_pkr": 20000, "skill_required": "AC Specialist"},
+  "suspension_issue":    {"min_pkr": 3000, "max_pkr": 25000, "skill_required": "Suspension Specialist"},
+  "coolant_leak":        {"min_pkr": 1000, "max_pkr": 8000,  "skill_required": "Engine Specialist"},
+  "unknown":             {"min_pkr": 500,  "max_pkr": 5000,  "skill_required": "General Mechanic"}
+}

@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OnRaasta – Mechanic Screens</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --dark:#050A14;--navy:#0D1B2E;--card:#0F2040;--blue:#2563EB;--orange:#F97316;
+  --white:#FFFFFF;--gray:#94A3B8;--border:#1E3A5F;--green:#22C55E;--red:#EF4444;--yellow:#F59E0B;
+}
+body{background:#1a1a2e;font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:40px}
+h1{color:var(--white);font-family:'Syne',sans-serif;font-size:28px;font-weight:800;text-align:center}
+h1 span{color:var(--orange)}
+.subtitle{color:var(--gray);font-size:14px;text-align:center;margin-top:6px}
+.screens-row{display:flex;gap:30px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+.screen-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+.screen-label{color:var(--gray);font-size:12px;font-family:'Syne',sans-serif;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.phone{width:360px;min-height:780px;background:var(--dark);border-radius:40px;border:2px solid var(--border);overflow:hidden;position:relative;box-shadow:0 30px 80px rgba(0,0,0,0.6)}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 24px 6px;color:var(--white);font-size:12px;font-weight:500}
+.btn-primary{background:var(--blue);color:var(--white);border:none;border-radius:16px;padding:16px;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer}
+.btn-orange{background:var(--orange);color:var(--white);border:none;border-radius:16px;padding:16px;font-size:15px;font-weight:600;cursor:pointer}
+.btn-outline{background:transparent;color:var(--white);border:1.5px solid var(--border);border-radius:16px;padding:14px;font-size:14px;font-weight:500;cursor:pointer}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-green{background:rgba(34,197,94,0.15);color:var(--green)}
+.tag-orange{background:rgba(249,115,22,0.15);color:var(--orange)}
+.tag-blue{background:rgba(37,99,235,0.15);color:#60A5FA}
+.bottom-nav{display:flex;justify-content:space-around;align-items:center;padding:14px 0 20px;background:var(--navy);border-top:1px solid var(--border)}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--gray);font-size:10px;font-weight:500}
+.nav-item.active{color:var(--orange)}
+.nav-icon{font-size:20px}
+.section-heading{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:var(--white)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.map-area{height:280px;background:linear-gradient(180deg,#0a1628 0%,#0d2040 100%);position:relative;overflow:hidden}
+.map-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(37,99,235,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,0.06) 1px,transparent 1px);background-size:30px 30px}
+.map-road-h{position:absolute;height:3px;background:rgba(255,255,255,0.12);left:0;right:0}
+.map-road-v{position:absolute;width:3px;background:rgba(255,255,255,0.12);top:0;bottom:0}
+.pulse-ring{position:absolute;width:60px;height:60px;border-radius:50%;border:2px solid var(--orange);top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.4}
+.mech-dot{position:absolute;width:18px;height:18px;background:var(--orange);border-radius:50%;border:3px solid white;top:50%;left:50%;transform:translate(-50%,-50%)}
+.req-dot{position:absolute;width:12px;height:12px;background:var(--red);border-radius:50%;border:2px solid white}
+/* JOB FEED */
+.job-feed{padding:16px 16px 0}
+.online-bar{display:flex;justify-content:space-between;align-items:center;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:14px;padding:12px 16px;margin-bottom:16px}
+.online-indicator{display:flex;align-items:center;gap:8px}
+.green-dot{width:10px;height:10px;background:var(--green);border-radius:50%}
+.toggle-switch{width:48px;height:26px;background:var(--green);border-radius:13px;position:relative;cursor:pointer}
+.toggle-thumb{width:20px;height:20px;background:white;border-radius:50%;position:absolute;right:3px;top:3px}
+.req-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:10px;position:relative}
+.req-card.new{border-color:var(--orange)}
+.new-badge{position:absolute;top:-8px;right:16px;background:var(--orange);color:white;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'Syne',sans-serif}
+.req-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.req-distance{color:var(--orange);font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px}
+.req-body{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+.req-vehicle-icon{width:40px;height:40px;border-radius:12px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ai-chip{display:flex;align-items:center;gap:6px;background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);border-radius:8px;padding:6px 10px;margin-top:6px}
+.req-footer{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border)}
+/* BID SCREEN */
+.bid-screen{padding:20px;min-height:730px;display:flex;flex-direction:column}
+.job-summary{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:20px}
+.price-input-area{background:var(--card);border:1.5px solid var(--blue);border-radius:20px;padding:20px;margin-bottom:16px;text-align:center}
+.currency-label{color:var(--gray);font-size:13px;margin-bottom:6px}
+.big-price{font-family:'Syne',sans-serif;font-size:44px;font-weight:800;color:var(--white);letter-spacing:-2px}
+.big-price span{color:var(--orange)}
+.price-range-hint{color:var(--gray);font-size:12px;margin-top:6px}
+.slider-track{height:4px;background:var(--border);border-radius:2px;margin:12px 0;position:relative}
+.slider-fill{height:4px;background:var(--blue);border-radius:2px;width:55%}
+.slider-thumb{width:20px;height:20px;background:var(--blue);border:3px solid white;border-radius:50%;position:absolute;top:-8px;left:55%;transform:translateX(-50%)}
+.eta-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.eta-btn{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px;text-align:center;cursor:pointer}
+.eta-btn.selected{border-color:var(--blue);background:rgba(37,99,235,0.1)}
+.eta-time{color:var(--white);font-size:15px;font-weight:700;font-family:'Syne',sans-serif}
+.eta-label{color:var(--gray);font-size:10px;margin-top:2px}
+/* ACTIVE JOB NAV */
+.nav-screen{display:flex;flex-direction:column;min-height:730px}
+.nav-map{height:400px;background:linear-gradient(180deg,#061020 0%,#0a1a35 100%);position:relative;overflow:hidden}
+.nav-route{position:absolute;top:10%;left:20%;width:3px;height:70%;background:var(--blue);border-radius:2px}
+.nav-route::before{content:'';position:absolute;top:-6px;left:-3px;width:9px;height:9px;background:white;border-radius:50%;border:2px solid var(--blue)}
+.nav-route::after{content:'';position:absolute;bottom:-6px;left:-3px;width:9px;height:9px;background:var(--orange);border-radius:50%;border:2px solid white}
+.status-pill{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:rgba(5,10,20,0.9);border:1px solid var(--green);border-radius:20px;padding:8px 20px;color:white;font-size:13px;display:flex;align-items:center;gap:8px}
+.sos-fab{position:absolute;top:16px;right:16px;width:44px;height:44px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:800;font-family:'Syne',sans-serif}
+.nav-eta-bubble{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(5,10,20,0.9);border:1px solid var(--border);border-radius:12px;padding:8px 16px;color:white;font-size:13px;font-weight:600;white-space:nowrap}
+.nav-sheet{padding:16px 20px;flex:1;background:var(--dark)}
+.status-steps{display:flex;justify-content:space-between;align-items:center;margin:16px 0}
+.step{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.step-circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px}
+.step-circle.done{background:var(--green)}
+.step-circle.active{background:var(--blue)}
+.step-circle.pending{background:var(--card);border:2px solid var(--border)}
+.step-label{color:var(--gray);font-size:10px;text-align:center}
+.step-label.active{color:var(--blue)}
+.step-line{flex:1;height:2px;background:var(--border);margin-bottom:12px}
+.step-line.done{background:var(--green)}
+.user-info-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px}
+.call-btn{background:var(--green);color:white;border:none;border-radius:14px;padding:12px 20px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
+/* DOC UPLOAD */
+.doc-screen{padding:20px;min-height:730px}
+.progress-bar{height:4px;background:var(--border);border-radius:2px;margin-bottom:24px}
+.progress-fill{height:4px;background:var(--blue);border-radius:2px;width:60%}
+.doc-card{background:var(--card);border:1.5px dashed var(--border);border-radius:20px;padding:20px;margin-bottom:14px;display:flex;align-items:center;gap:14px;cursor:pointer;position:relative}
+.doc-card.uploaded{border-style:solid;border-color:var(--green);background:rgba(34,197,94,0.04)}
+.doc-icon-box{width:52px;height:52px;border-radius:14px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.doc-info h3{color:var(--white);font-size:14px;font-weight:600}
+.doc-info p{color:var(--gray);font-size:11px;margin-top:3px}
+.doc-status{position:absolute;right:16px;top:50%;transform:translateY(-50%)}
+.upload-area{border:1.5px dashed var(--border);border-radius:16px;padding:24px;text-align:center;margin:8px 0}
+.upload-icon{font-size:32px;margin-bottom:8px}
+.upload-text{color:var(--gray);font-size:13px}
+.upload-text span{color:var(--blue)}
+/* RATINGS RECEIVED */
+.ratings-screen{padding:20px;min-height:730px}
+.rating-summary{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;display:flex;gap:20px;align-items:center;margin-bottom:20px}
+.big-rating{font-family:'Syne',sans-serif;font-size:52px;font-weight:800;color:var(--white);line-height:1}
+.rating-bars{flex:1}
+.rating-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.rating-num{color:var(--gray);font-size:11px;width:12px;text-align:right}
+.rating-bar{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.rating-fill{height:6px;background:var(--yellow);border-radius:3px}
+.rating-count{color:var(--gray);font-size:11px;width:20px}
+.review-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px}
+.reviewer-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.reviewer-info{display:flex;align-items:center;gap:10px}
+.reviewer-avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#1e3a5f,#2563eb);display:flex;align-items:center;justify-content:center;font-size:16px}
+.reviewer-name{color:var(--white);font-size:13px;font-weight:600}
+.review-date{color:var(--gray);font-size:11px;margin-top:2px}
+.review-text{color:var(--gray);font-size:13px;line-height:1.6}
+.review-vehicle{display:flex;align-items:center;gap:6px;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>OnRaasta <span>Mockups</span> — Mechanic Screens</h1>
+<p class="subtitle">Screens 14–21 · Mechanic App Module</p>
+
+<div class="screens-row">
+
+<!-- SCREEN 14: MECHANIC HOME / JOB FEED -->
+<div class="screen-wrap">
+  <div class="screen-label">14 · Mechanic Home</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div class="map-area">
+      <div class="map-grid"></div>
+      <div class="map-road-h" style="top:40%"></div>
+      <div class="map-road-h" style="top:70%"></div>
+      <div class="map-road-v" style="left:30%"></div>
+      <div class="map-road-v" style="left:65%"></div>
+      <div class="pulse-ring"></div>
+      <div class="pulse-ring" style="width:90px;height:90px;opacity:0.2"></div>
+      <div class="mech-dot"></div>
+      <div class="req-dot" style="top:20%;left:25%"></div>
+      <div class="req-dot" style="top:30%;left:70%"></div>
+      <div class="req-dot" style="top:65%;left:40%"></div>
+      <div style="position:absolute;top:12px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center">
+        <div style="background:rgba(5,10,20,0.85);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:8px 14px;display:flex;align-items:center;gap:6px">
+          <div style="width:8px;height:8px;background:var(--green);border-radius:50%"></div>
+          <span style="color:white;font-size:13px">Online · Lahore</span>
+        </div>
+        <div style="background:rgba(5,10,20,0.85);border:1px solid var(--border);border-radius:12px;padding:8px 12px">
+          <span style="color:white;font-size:18px">🔔</span>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:10px;left:16px;background:rgba(5,10,20,0.85);border:1px solid var(--border);border-radius:10px;padding:6px 12px">
+        <span style="color:var(--orange);font-size:12px;font-weight:600">3 active requests nearby</span>
+      </div>
+    </div>
+    <div class="job-feed">
+      <div class="online-bar">
+        <div class="online-indicator">
+          <div class="green-dot"></div>
+          <div>
+            <div style="color:var(--white);font-size:13px;font-weight:600">You're Online</div>
+            <div style="color:var(--gray);font-size:11px">Receiving job requests</div>
+          </div>
+        </div>
+        <div class="toggle-switch"><div class="toggle-thumb"></div></div>
+      </div>
+      <!-- New request -->
+      <div class="req-card new">
+        <div class="new-badge">🔴 NEW</div>
+        <div class="req-header">
+          <div>
+            <div style="color:var(--white);font-size:14px;font-weight:600">Engine Overheat</div>
+            <div class="req-distance">📍 2.5 km away · ~8 min</div>
+          </div>
+          <div style="color:var(--gray);font-size:11px">2m ago</div>
+        </div>
+        <div class="req-body">
+          <div class="req-vehicle-icon">🚗</div>
+          <div style="flex:1">
+            <div style="color:var(--white);font-size:13px">Honda Civic 2020 · Silver</div>
+            <div class="ai-chip"><span style="color:var(--orange);font-size:12px">🤖</span><span style="color:var(--orange);font-size:11px;font-weight:600">AI: Radiator Leak likely</span></div>
+          </div>
+        </div>
+        <div class="req-footer">
+          <div class="tag tag-orange">Est. PKR 5,000–8,000</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-outline" style="padding:8px 14px;font-size:12px;border-radius:10px">Decline</button>
+            <button class="btn-primary" style="padding:8px 14px;font-size:12px;border-radius:10px">View →</button>
+          </div>
+        </div>
+      </div>
+      <!-- Another request -->
+      <div class="req-card">
+        <div class="req-header">
+          <div>
+            <div style="color:var(--white);font-size:14px;font-weight:600">Flat Tire</div>
+            <div class="req-distance">📍 4.1 km away · ~14 min</div>
+          </div>
+          <div style="color:var(--gray);font-size:11px">8m ago</div>
+        </div>
+        <div class="req-body">
+          <div class="req-vehicle-icon">🚙</div>
+          <div style="flex:1">
+            <div style="color:var(--white);font-size:13px">Toyota Corolla 2021 · White</div>
+            <div class="ai-chip" style="margin-top:6px"><span style="color:var(--orange);font-size:12px">🤖</span><span style="color:var(--orange);font-size:11px;font-weight:600">AI: Puncture detected</span></div>
+          </div>
+        </div>
+        <div class="req-footer">
+          <div class="tag tag-blue">Est. PKR 800–1,500</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-outline" style="padding:8px 14px;font-size:12px;border-radius:10px">Decline</button>
+            <button class="btn-primary" style="padding:8px 14px;font-size:12px;border-radius:10px">View →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-nav" style="position:static">
+      <div class="nav-item active"><div class="nav-icon">🏠</div>Home</div>
+      <div class="nav-item"><div class="nav-icon">💼</div>Jobs</div>
+      <div class="nav-item"><div class="nav-icon">👤</div>Profile</div>
+      <div class="nav-item"><div class="nav-icon">💰</div>Earnings</div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 15: NEW REQUEST DETAIL -->
+<div class="screen-wrap">
+  <div class="screen-label">15 · New Request Detail</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div style="min-height:730px;background:var(--dark);">
+      <!-- Map with route -->
+      <div style="height:300px;background:#e8f0e9;position:relative;overflow:hidden;">
+        <div style="position:absolute;inset:0;background:linear-gradient(135deg,#d4e8d0 0%,#c8dcc8 100%)"></div>
+        <!-- Map roads -->
+        <div style="position:absolute;top:35%;left:0;right:0;height:8px;background:rgba(255,255,255,0.8);border-radius:4px"></div>
+        <div style="position:absolute;top:55%;left:0;right:0;height:5px;background:rgba(255,255,255,0.6)"></div>
+        <div style="position:absolute;left:45%;top:0;bottom:0;width:6px;background:rgba(255,255,255,0.8)"></div>
+        <!-- Route line -->
+        <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 400 300">
+          <line x1="80" y1="120" x2="260" y2="160" stroke="#1a56db" stroke-width="4" stroke-dasharray="8,4"/>
+        </svg>
+        <!-- User dot -->
+        <div style="position:absolute;top:36%;left:18%;width:18px;height:18px;background:#1a56db;border-radius:50%;border:3px solid white;box-shadow:0 0 0 5px rgba(26,86,219,0.2)"></div>
+        <!-- Job pin -->
+        <div style="position:absolute;top:46%;left:58%;">
+          <div style="width:36px;height:36px;background:var(--orange);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 4px 16px rgba(249,115,22,0.5)">
+            <div style="width:12px;height:12px;background:white;border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)"></div>
+          </div>
+        </div>
+        <!-- Distance pill -->
+        <div style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:#0a1022;color:white;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:8px">
+          <span style="color:#60A5FA">➤</span> 3.5 km away • ~12 min
+        </div>
+        <!-- Top bar -->
+        <div style="position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center">
+          <div style="width:38px;height:38px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">←</div>
+          <div style="background:white;border-radius:20px;padding:8px 18px;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--blue);box-shadow:0 2px 8px rgba(0,0,0,0.15)">NEW REQUEST</div>
+          <div style="width:38px;height:38px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:var(--blue);box-shadow:0 2px 8px rgba(0,0,0,0.15)">?</div>
+        </div>
+      </div>
+      <!-- Bottom sheet -->
+      <div style="background:white;border-top-left-radius:24px;border-top-right-radius:24px;margin-top:-20px;padding:20px;position:relative;z-index:5;flex:1">
+        <div style="width:40px;height:4px;background:#eee;border-radius:2px;margin:0 auto 16px"></div>
+        <!-- Vehicle -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:52px;height:52px;border-radius:14px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:26px">🚗</div>
+          <div>
+            <div style="color:#888;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase">VEHICLE MODEL</div>
+            <div style="color:#111;font-size:16px;font-weight:700;font-family:'Syne',sans-serif">Honda Civic 2020 - Silver</div>
+          </div>
+        </div>
+        <!-- AI Suggestion -->
+        <div style="background:#fff8f3;border:1.5px solid #fde8d4;border-radius:16px;padding:14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px">
+          <div style="width:38px;height:38px;background:#fde8d4;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px">✨</div>
+          <div>
+            <div style="color:var(--orange);font-size:13px;font-weight:700">AI Suggestion</div>
+            <div style="color:#333;font-size:13px;margin-top:4px">Suspected Radiator Leak based on user images.</div>
+          </div>
+        </div>
+        <!-- Description -->
+        <div style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="font-size:16px">📄</span><span style="color:#111;font-size:14px;font-weight:600">User Description</span></div>
+          <div style="background:#f8f9fa;border:1px solid #eee;border-radius:14px;padding:14px;color:#333;font-size:13px;line-height:1.6;">"Engine overheating, smoke coming from the front. I stopped immediately. Please help quickly."</div>
+        </div>
+        <!-- User photo -->
+        <div style="width:64px;height:64px;border-radius:12px;background:#111;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:16px">💨</div>
+        <!-- Action buttons -->
+        <div style="display:flex;gap:10px">
+          <button style="flex:1;background:white;border:1.5px solid #ddd;border-radius:18px;padding:14px;font-size:15px;font-weight:600;color:#555;font-family:'DM Sans',sans-serif">Decline</button>
+          <button style="flex:2;background:var(--blue);color:white;border:none;border-radius:18px;padding:14px;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif">Submit Offer ›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 16: SUBMIT BID -->
+<div class="screen-wrap">
+  <div class="screen-label">16 · Submit Bid / Offer</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div class="bid-screen">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center"><span style="color:white">←</span></div>
+        <span class="section-heading">Submit Your Offer</span>
+      </div>
+      <div class="job-summary">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;font-size:20px">🚗</div>
+          <div>
+            <div style="color:var(--white);font-size:14px;font-weight:600">Honda Civic 2020</div>
+            <div style="color:var(--gray);font-size:12px">Engine Overheat · Gulberg</div>
+          </div>
+        </div>
+        <div style="background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">🤖</span>
+          <span style="color:var(--orange);font-size:12px;font-weight:500">AI suggests: Radiator Leak · Est PKR 5,000–8,000</span>
+        </div>
+      </div>
+      <div style="color:var(--white);font-size:14px;font-weight:600;margin-bottom:10px">Your Price Offer</div>
+      <div class="price-input-area">
+        <div class="currency-label">PKR</div>
+        <div class="big-price">6,<span>500</span></div>
+        <div class="price-range-hint">AI estimated range: PKR 5,000 – 8,000</div>
+        <div class="slider-track" style="margin-top:12px">
+          <div class="slider-fill"></div>
+          <div class="slider-thumb"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:var(--gray);font-size:11px">
+          <span>PKR 1,000</span><span>PKR 15,000</span>
+        </div>
+      </div>
+      <div style="color:var(--white);font-size:14px;font-weight:600;margin-bottom:10px">Your ETA</div>
+      <div class="eta-selector">
+        <div class="eta-btn"><div class="eta-time">5</div><div class="eta-label">minutes</div></div>
+        <div class="eta-btn selected"><div class="eta-time" style="color:var(--blue)">10</div><div class="eta-label" style="color:var(--blue)">minutes</div></div>
+        <div class="eta-btn"><div class="eta-time">15</div><div class="eta-label">minutes</div></div>
+      </div>
+      <div style="color:var(--white);font-size:14px;font-weight:600;margin-bottom:8px">Add a note (optional)</div>
+      <div style="background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px;color:var(--gray);font-size:13px;margin-bottom:16px">
+        I specialize in engine issues and will bring necessary tools for radiator repair...
+      </div>
+      <button class="btn-primary" style="width:100%;padding:16px">Submit Offer → PKR 6,500</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 17: ACTIVE JOB / NAVIGATION -->
+<div class="screen-wrap">
+  <div class="screen-label">17 · Active Job / Navigation</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div class="nav-screen">
+      <div class="nav-map">
+        <div class="map-grid" style="background-image:linear-gradient(rgba(37,99,235,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,0.04) 1px,transparent 1px);background-size:30px 30px"></div>
+        <div class="map-road-h" style="top:35%"></div>
+        <div class="map-road-h" style="top:65%"></div>
+        <div class="map-road-v" style="left:40%"></div>
+        <div class="map-road-v" style="left:70%"></div>
+        <!-- Route line -->
+        <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 360 280">
+          <path d="M80 240 Q120 200 160 180 Q200 160 230 120 Q260 90 300 60" stroke="#2563EB" stroke-width="3" fill="none" stroke-dasharray="none"/>
+        </svg>
+        <!-- Mechanic position -->
+        <div style="position:absolute;top:75%;left:22%;width:20px;height:20px;background:var(--orange);border-radius:50%;border:3px solid white;box-shadow:0 0 12px rgba(249,115,22,0.6)"></div>
+        <!-- User position -->
+        <div style="position:absolute;top:18%;left:78%;width:20px;height:20px;background:var(--red);border-radius:50%;border:3px solid white"></div>
+        <div class="status-pill"><div style="width:8px;height:8px;background:var(--green);border-radius:50%"></div>En Route to User</div>
+        <div class="sos-fab">SOS</div>
+        <div class="nav-eta-bubble">🧭 Turn right on Main Blvd in 200m</div>
+      </div>
+      <div class="nav-sheet">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <div style="color:var(--gray);font-size:12px">Distance remaining</div>
+            <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;color:var(--white)">1.8 km <span style="color:var(--orange);font-size:16px">· 6 min</span></div>
+          </div>
+          <div style="text-align:right">
+            <div style="color:var(--gray);font-size:12px">Agreed price</div>
+            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--green)">PKR 6,500</div>
+          </div>
+        </div>
+        <!-- Status steps -->
+        <div style="display:flex;align-items:center;margin-bottom:16px">
+          <div class="step">
+            <div class="step-circle done">✓</div>
+            <div class="step-label">Accepted</div>
+          </div>
+          <div class="step-line done"></div>
+          <div class="step">
+            <div class="step-circle active">🔵</div>
+            <div class="step-label active">En Route</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step">
+            <div class="step-circle pending">3</div>
+            <div class="step-label">Arrived</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step">
+            <div class="step-circle pending">4</div>
+            <div class="step-label">Done</div>
+          </div>
+        </div>
+        <div class="user-info-card">
+          <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#1e3a5f,#2563eb);display:flex;align-items:center;justify-content:center;font-size:18px">👤</div>
+          <div style="flex:1">
+            <div style="color:var(--white);font-size:14px;font-weight:600">Ahmad Raza</div>
+            <div style="color:var(--gray);font-size:12px">Honda Civic 2020 · Engine Overheat</div>
+          </div>
+          <button class="call-btn" style="padding:10px 14px;font-size:13px">📞 Call</button>
+        </div>
+        <button class="btn-orange" style="width:100%;margin-top:12px;padding:14px">I've Arrived →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 18: MECHANIC PROFILE (OWN) -->
+<div class="screen-wrap">
+  <div class="screen-label">18 · My Profile</div>
+  <div class="phone">
+    <div class="status-bar" style="background:#f5f7fa"><span style="color:#333">9:41</span><span style="color:#333">▲ 5G 🔋</span></div>
+    <div style="min-height:730px;background:#f5f7fa;">
+      <div style="background:white;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:34px;height:34px;border-radius:10px;background:#f5f7fa;border:1px solid #eee;display:flex;align-items:center;justify-content:center">←</div>
+          <span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#111">My Profile</span>
+        </div>
+        <span style="color:var(--blue);font-size:20px">✏️</span>
+      </div>
+      <!-- Avatar -->
+      <div style="background:white;padding:24px;display:flex;flex-direction:column;align-items:center;gap:8px;border-bottom:1px solid #eee">
+        <div style="position:relative">
+          <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#e07c3e,#d4693a);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:36px">👨‍🔧</div>
+          <div style="position:absolute;bottom:0;right:0;width:26px;height:26px;background:var(--blue);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:12px">📷</div>
+        </div>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:#111">Faisal Ahmed</div>
+        <div style="color:var(--yellow);font-size:13px">★ 4.8 <span style="color:#888">(120 Reviews)</span></div>
+        <div style="color:#888;font-size:12px">Member since 2021</div>
+        <div style="background:#edf9f0;border:1px solid #c6ecd4;border-radius:14px;padding:12px 16px;width:100%;display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:36px;height:36px;background:#c6ecd4;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px">🛡</div>
+            <div><div style="font-size:13px;font-weight:700;color:#111">Documents Verified</div><div style="font-size:11px;color:#666">Your account is fully approved to accept jobs.</div></div>
+          </div>
+          <span style="color:#888">›</span>
+        </div>
+      </div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+        <!-- Skills -->
+        <div style="background:white;border-radius:16px;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#111">My Skills</span>
+            <span style="color:var(--blue);font-size:13px;font-weight:600">Edit</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span style="border:1.5px solid #ddd;border-radius:20px;padding:6px 14px;font-size:12px;color:var(--blue);border-color:var(--blue)">Brake Specialist</span>
+            <span style="border:1.5px solid #ddd;border-radius:20px;padding:6px 14px;font-size:12px;color:var(--blue);border-color:var(--blue)">Tire Repair</span>
+            <span style="border:1.5px solid #ddd;border-radius:20px;padding:6px 14px;font-size:12px;color:var(--blue);border-color:var(--blue)">Engine Diagnostics</span>
+            <span style="border:1.5px solid #ddd;border-radius:20px;padding:6px 14px;font-size:12px;color:var(--blue);border-color:var(--blue)">Oil Change</span>
+            <span style="border:1.5px dashed #ccc;border-radius:20px;padding:6px 14px;font-size:12px;color:#888">+ Add Skill</span>
+          </div>
+        </div>
+        <!-- Contact -->
+        <div style="background:white;border-radius:16px;padding:16px">
+          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#111;margin-bottom:12px">Contact Information</div>
+          <div style="margin-bottom:10px">
+            <div style="color:#888;font-size:10px;font-weight:700;letter-spacing:0.5px;margin-bottom:4px">MOBILE NUMBER</div>
+            <div style="background:#f5f7fa;border-radius:12px;padding:12px;display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px">📱</span><span style="color:#333;font-size:14px">+92 300 1234567</span>
+            </div>
+          </div>
+          <div style="margin-bottom:12px">
+            <div style="color:#888;font-size:10px;font-weight:700;letter-spacing:0.5px;margin-bottom:4px">EMAIL ADDRESS</div>
+            <div style="background:#f5f7fa;border-radius:12px;padding:12px;display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px">✉️</span><span style="color:#333;font-size:14px">faisal.ahmed@example.com</span>
+            </div>
+          </div>
+          <button style="width:100%;background:var(--blue);color:white;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif">Update Contact Info</button>
+        </div>
+        <!-- Business -->
+        <div style="background:white;border-radius:16px;padding:16px">
+          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#111;margin-bottom:12px">Business Details</div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eee">
+            <span style="font-size:18px">🏪</span>
+            <div style="flex:1"><div style="color:#888;font-size:10px;font-weight:700">SHOP ADDRESS</div><div style="color:#111;font-size:13px">Shop No. 5, Defence Road, DHA, Lahore</div></div>
+            <span style="color:#888;font-size:18px">✏️</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0">
+            <span style="font-size:18px">📍</span>
+            <div style="flex:1"><div style="color:#888;font-size:10px;font-weight:700">SERVICE RADIUS</div><div style="color:#111;font-size:13px">15 km around shop location</div></div>
+            <span style="color:#888;font-size:18px">✏️</span>
+          </div>
+        </div>
+      </div>
+      <!-- Online status bar -->
+      <div style="position:sticky;bottom:0;background:#111;padding:14px 20px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="color:white;font-size:13px;font-weight:700">You are currently ONLINE</div>
+          <div style="color:#888;font-size:11px">Receiving job requests</div>
+        </div>
+        <div style="width:50px;height:28px;background:var(--green);border-radius:14px;position:relative;display:flex;align-items:center;padding:2px 4px;justify-content:flex-end">
+          <div style="width:22px;height:22px;background:white;border-radius:50%"></div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="nav-icon">🏠</div>Home</div>
+        <div class="nav-item"><div class="nav-icon">💼</div>Jobs</div>
+        <div class="nav-item active"><div class="nav-icon">👤</div>Profile</div>
+        <div class="nav-item"><div class="nav-icon">💰</div>Earnings</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 19: HISTORY & EARNINGS -->
+<div class="screen-wrap">
+  <div class="screen-label">19 · History & Earnings</div>
+  <div class="phone">
+    <div class="status-bar" style="background:#f5f7fa"><span style="color:#333">9:41</span><span style="color:#333">▲ 5G 🔋</span></div>
+    <div style="min-height:730px;background:#f5f7fa;">
+      <div style="padding:20px 20px 0;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:#111">History & Earnings</span>
+        <div style="width:36px;height:36px;background:white;border:1px solid #eee;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px">⚙️</div>
+      </div>
+      <!-- Summary cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px">
+        <div style="background:white;border-radius:16px;padding:16px">
+          <div style="font-size:24px;margin-bottom:4px">🔧</div>
+          <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:#111">42</div>
+          <div style="color:#888;font-size:12px;margin-top:2px">Total Jobs</div>
+        </div>
+        <div style="background:white;border-radius:16px;padding:16px">
+          <div style="font-size:24px;margin-bottom:4px">💵</div>
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#111">PKR 1,250</div>
+          <div style="color:#888;font-size:12px;margin-top:2px">30-Day Earnings</div>
+        </div>
+      </div>
+      <!-- Earnings chart -->
+      <div style="background:white;margin:0 16px;border-radius:16px;padding:16px;margin-bottom:16px">
+        <div style="color:#888;font-size:12px;margin-bottom:4px">Weekly Earnings Trend</div>
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <span style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#111">PKR 450</span>
+          <span style="color:var(--green);font-size:13px;font-weight:600">+12%</span>
+          <span style="color:#888;font-size:11px;margin-left:auto">Last 7 Days</span>
+        </div>
+        <!-- Chart -->
+        <svg viewBox="0 0 300 80" style="width:100%;height:80px;margin-top:8px">
+          <defs><linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#2563EB" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+          </linearGradient></defs>
+          <path d="M0 65 Q30 50 60 55 Q90 60 120 40 Q150 20 180 30 Q210 40 240 25 Q270 10 300 20" fill="url(#chartGrad)" stroke="none"/>
+          <path d="M0 65 Q30 50 60 55 Q90 60 120 40 Q150 20 180 30 Q210 40 240 25 Q270 10 300 20" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <div style="display:flex;justify-content:space-between;color:#aaa;font-size:10px;padding-top:4px">
+          <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+        </div>
+      </div>
+      <!-- Recent jobs -->
+      <div style="padding:0 16px">
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:#111;margin-bottom:12px">Recent Completed Jobs</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <!-- Job 1 -->
+          <div style="background:white;border-radius:16px;padding:14px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span style="color:#888;font-size:12px">🕐 Today, 10:30 AM</span>
+              <span style="background:#edfdf5;color:var(--green);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700">COMPLETED</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <div style="width:40px;height:40px;background:#f5f7fa;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🚗</div>
+              <div><div style="color:#888;font-size:10px;font-weight:600">VEHICLE MODEL</div><div style="font-size:14px;font-weight:700;color:#111">Toyota Camry</div><div style="color:var(--orange);font-size:12px;font-weight:600">🔥 Flat Tire</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><div style="font-size:16px;font-weight:800;color:#111">PKR 45.00</div><div style="color:#888;font-size:11px">Paid Cash</div></div>
+              <button style="background:var(--blue);color:white;border:none;border-radius:12px;padding:8px 14px;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif">⭐ View Rating</button>
+            </div>
+          </div>
+          <!-- Job 2 -->
+          <div style="background:white;border-radius:16px;padding:14px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span style="color:#888;font-size:12px">🕐 Yesterday, 4:15 PM</span>
+              <span style="background:#edfdf5;color:var(--green);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700">COMPLETED</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <div style="width:40px;height:40px;background:#f5f7fa;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🚗</div>
+              <div><div style="color:#888;font-size:10px;font-weight:600">VEHICLE MODEL</div><div style="font-size:14px;font-weight:700;color:#111">Honda Civic</div><div style="color:var(--orange);font-size:12px;font-weight:600">🔋 Battery Jumpstart</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><div style="font-size:16px;font-weight:800;color:#111">PKR 30.00</div><div style="color:#888;font-size:11px">Paid Online</div></div>
+              <button style="background:#f5f7fa;border:1px solid #eee;color:#666;border-radius:12px;padding:8px 14px;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif">⭐ View Rating</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item"><div class="nav-icon">🏠</div>Home</div>
+      <div class="nav-item"><div class="nav-icon">💼</div>Jobs</div>
+      <div class="nav-item"><div class="nav-icon">👤</div>Profile</div>
+      <div class="nav-item active"><div class="nav-icon">💰</div>Earnings</div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 20: DOCUMENT UPLOAD -->
+<div class="screen-wrap">
+  <div class="screen-label">20 · Document Upload</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div class="doc-screen">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center"><span style="color:white">←</span></div>
+        <span class="section-heading">Verify Your Account</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill"></div></div>
+      <div class="section-heading" style="font-size:16px;margin-bottom:4px">Upload Documents</div>
+      <div style="color:var(--gray);font-size:13px;margin-bottom:20px;line-height:1.6">Upload required documents to get verified and start accepting jobs.</div>
+      <!-- CNIC uploaded -->
+      <div class="doc-card uploaded">
+        <div class="doc-icon-box" style="background:rgba(34,197,94,0.1)">🪪</div>
+        <div class="doc-info">
+          <h3>CNIC (National ID)</h3>
+          <p>Front & back uploaded · Verified</p>
+        </div>
+        <div class="doc-status"><span style="color:var(--green);font-size:20px">✓</span></div>
+      </div>
+      <!-- License pending -->
+      <div class="doc-card uploaded">
+        <div class="doc-icon-box" style="background:rgba(34,197,94,0.1)">🪪</div>
+        <div class="doc-info">
+          <h3>Driving License</h3>
+          <p>cnic_front.jpg · Under review</p>
+        </div>
+        <div class="doc-status"><div class="tag tag-orange">Pending</div></div>
+      </div>
+      <!-- Mechanic cert not uploaded -->
+      <div class="doc-card">
+        <div class="doc-icon-box">📜</div>
+        <div class="doc-info">
+          <h3>Mechanic Certificate</h3>
+          <p>Trade certificate or workshop permit</p>
+        </div>
+        <div class="doc-status"><span style="color:var(--blue);font-size:22px">+</span></div>
+      </div>
+      <!-- Workshop permit -->
+      <div class="doc-card">
+        <div class="doc-icon-box">🏪</div>
+        <div class="doc-info">
+          <h3>Workshop Permit</h3>
+          <p>License number required</p>
+        </div>
+        <div class="doc-status"><span style="color:var(--blue);font-size:22px">+</span></div>
+      </div>
+      <div style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.2);border-radius:14px;padding:14px;margin-top:8px">
+        <div style="color:#60A5FA;font-size:13px;font-weight:600;margin-bottom:4px">ℹ️ Verification Info</div>
+        <div style="color:var(--gray);font-size:12px;line-height:1.6">Documents are reviewed by our team within 24–48 hours. You'll be notified once approved.</div>
+      </div>
+      <button class="btn-primary" style="width:100%;margin-top:20px">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 21: RATINGS RECEIVED -->
+<div class="screen-wrap">
+  <div class="screen-label">21 · Ratings Received</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div class="ratings-screen">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center"><span style="color:white">←</span></div>
+        <span class="section-heading">My Reviews</span>
+      </div>
+      <div class="rating-summary">
+        <div>
+          <div class="big-rating">4.8</div>
+          <div style="color:var(--yellow);font-size:14px;margin-top:2px">★★★★★</div>
+          <div style="color:var(--gray);font-size:11px;margin-top:4px">120 reviews</div>
+        </div>
+        <div class="rating-bars">
+          <div class="rating-row"><span class="rating-num">5</span><div class="rating-bar"><div class="rating-fill" style="width:85%"></div></div><span class="rating-count">102</span></div>
+          <div class="rating-row"><span class="rating-num">4</span><div class="rating-bar"><div class="rating-fill" style="width:12%"></div></div><span class="rating-count">14</span></div>
+          <div class="rating-row"><span class="rating-num">3</span><div class="rating-bar"><div class="rating-fill" style="width:3%"></div></div><span class="rating-count">3</span></div>
+          <div class="rating-row"><span class="rating-num">2</span><div class="rating-bar"><div class="rating-fill" style="width:1%"></div></div><span class="rating-count">1</span></div>
+          <div class="rating-row"><span class="rating-num">1</span><div class="rating-bar"><div class="rating-fill" style="width:0%"></div></div><span class="rating-count">0</span></div>
+        </div>
+      </div>
+      <!-- Review 1 -->
+      <div class="review-card">
+        <div class="reviewer-row">
+          <div class="reviewer-info">
+            <div class="reviewer-avatar">👤</div>
+            <div>
+              <div class="reviewer-name">Ahmad R.</div>
+              <div class="review-date">2 days ago</div>
+            </div>
+          </div>
+          <div style="color:var(--yellow);font-size:13px">★★★★★</div>
+        </div>
+        <div class="review-text">"Ali reached my location in 20 minutes! Fixed the engine issue very quickly. Professional and affordable. Highly recommended!"</div>
+        <div class="review-vehicle"><span style="font-size:14px">🚗</span><span style="color:var(--gray);font-size:11px">Honda Civic 2020 · Engine Overheat</span></div>
+      </div>
+      <!-- Review 2 -->
+      <div class="review-card">
+        <div class="reviewer-row">
+          <div class="reviewer-info">
+            <div class="reviewer-avatar">👤</div>
+            <div>
+              <div class="reviewer-name">Sara K.</div>
+              <div class="review-date">5 days ago</div>
+            </div>
+          </div>
+          <div style="color:var(--yellow);font-size:13px">★★★★★</div>
+        </div>
+        <div class="review-text">"Excellent service! He was very knowledgeable and explained everything clearly. Fair price too."</div>
+        <div class="review-vehicle"><span style="font-size:14px">🚗</span><span style="color:var(--gray);font-size:11px">Toyota Corolla · Battery Issue</span></div>
+      </div>
+      <!-- Review 3 -->
+      <div class="review-card">
+        <div class="reviewer-row">
+          <div class="reviewer-info">
+            <div class="reviewer-avatar">👤</div>
+            <div>
+              <div class="reviewer-name">Usman T.</div>
+              <div class="review-date">1 week ago</div>
+            </div>
+          </div>
+          <div style="color:var(--yellow);font-size:13px">★★★★☆</div>
+        </div>
+        <div class="review-text">"Good service overall. Took a bit longer than expected but the work quality was great."</div>
+        <div class="review-vehicle"><span style="font-size:14px">🚙</span><span style="color:var(--gray);font-size:11px">Suzuki Cultus · Flat Tire</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

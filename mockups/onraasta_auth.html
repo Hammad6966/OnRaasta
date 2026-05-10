@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OnRaasta – Auth Screens</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --dark:#050A14;
+  --navy:#0D1B2E;
+  --card:#0F2040;
+  --blue:#2563EB;
+  --blue2:#1D4ED8;
+  --orange:#F97316;
+  --white:#FFFFFF;
+  --gray:#94A3B8;
+  --lightgray:#CBD5E1;
+  --border:#1E3A5F;
+  --green:#22C55E;
+}
+body{background:#1a1a2e;font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:40px;min-height:100vh}
+h1{color:var(--white);font-family:'Syne',sans-serif;font-size:28px;font-weight:800;text-align:center;letter-spacing:-0.5px}
+h1 span{color:var(--orange)}
+.subtitle{color:var(--gray);font-size:14px;text-align:center;margin-top:6px}
+.screens-row{display:flex;gap:30px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+.screen-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+.screen-label{color:var(--gray);font-size:12px;font-family:'Syne',sans-serif;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.phone{width:360px;min-height:780px;background:var(--dark);border-radius:40px;border:2px solid var(--border);overflow:hidden;position:relative;box-shadow:0 30px 80px rgba(0,0,0,0.6)}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 24px 6px;color:var(--white);font-size:12px;font-weight:500}
+/* SPLASH SCREEN */
+.splash{background:var(--dark);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:730px;padding:40px 30px;position:relative;overflow:hidden}
+.splash::before{content:'';position:absolute;width:400px;height:400px;background:radial-gradient(circle,rgba(37,99,235,0.15) 0%,transparent 70%);top:-100px;left:-100px;border-radius:50%}
+.splash::after{content:'';position:absolute;width:300px;height:300px;background:radial-gradient(circle,rgba(249,115,22,0.1) 0%,transparent 70%);bottom:-80px;right:-80px;border-radius:50%}
+.logo-ring{width:100px;height:100px;border-radius:28px;background:linear-gradient(135deg,var(--blue),#1e40af);display:flex;align-items:center;justify-content:center;margin-bottom:24px;position:relative;box-shadow:0 0 40px rgba(37,99,235,0.4)}
+.logo-ring svg{width:52px;height:52px}
+.app-name{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:var(--white);letter-spacing:-1px}
+.app-name span{color:var(--orange)}
+.tagline{color:var(--gray);font-size:13px;text-align:center;margin-top:8px;line-height:1.6;max-width:240px}
+.splash-btns{width:100%;margin-top:60px;display:flex;flex-direction:column;gap:12px}
+.btn-primary{background:var(--blue);color:var(--white);border:none;border-radius:16px;padding:16px;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;letter-spacing:0.2px}
+.btn-outline{background:transparent;color:var(--white);border:1.5px solid var(--border);border-radius:16px;padding:16px;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer}
+.splash-footer{color:var(--gray);font-size:11px;text-align:center;margin-top:24px;position:absolute;bottom:30px}
+/* ROLE SELECTION */
+.role-screen{padding:30px 24px;display:flex;flex-direction:column;min-height:730px}
+.back-btn{width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin-bottom:32px}
+.screen-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:var(--white);line-height:1.2}
+.screen-subtitle{color:var(--gray);font-size:13px;margin-top:8px;line-height:1.6}
+.role-cards{display:flex;flex-direction:column;gap:16px;margin-top:32px}
+.role-card{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:24px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all 0.2s;position:relative}
+.role-card.active{border-color:var(--blue);background:rgba(37,99,235,0.08)}
+.role-icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+.role-icon.driver{background:rgba(37,99,235,0.15)}
+.role-icon.mechanic{background:rgba(249,115,22,0.15)}
+.role-info h3{color:var(--white);font-size:16px;font-weight:600;font-family:'Syne',sans-serif}
+.role-info p{color:var(--gray);font-size:12px;margin-top:3px;line-height:1.5}
+.check-circle{width:22px;height:22px;border-radius:50%;background:var(--blue);position:absolute;right:20px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center}
+.role-features{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.feature-item{display:flex;align-items:center;gap:8px;color:var(--gray);font-size:12px}
+.feature-item span:first-child{color:var(--green);font-size:14px}
+.role-continue{margin-top:auto;padding-top:24px}
+/* SIGNUP */
+.auth-screen{padding:24px;display:flex;flex-direction:column;min-height:730px}
+.otp-area{display:flex;gap:10px;justify-content:center;margin:16px 0}
+.otp-box{width:52px;height:60px;background:var(--card);border:1.5px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--white);font-size:22px;font-weight:700;font-family:'Syne',sans-serif}
+.otp-box.filled{border-color:var(--blue);background:rgba(37,99,235,0.1)}
+.form-group{margin-bottom:16px}
+.form-label{color:var(--gray);font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;display:block}
+.form-input{width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;color:var(--white);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;display:flex;align-items:center;gap:10px}
+.form-input.focused{border-color:var(--blue)}
+.input-icon{color:var(--gray);font-size:16px;flex-shrink:0}
+.input-text{color:var(--white);font-size:14px}
+.input-placeholder{color:#4B6280;font-size:14px}
+.divider-row{display:flex;align-items:center;gap:12px;margin:16px 0}
+.divider-line{flex:1;height:1px;background:var(--border)}
+.divider-text{color:var(--gray);font-size:12px}
+.social-btn{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--white);font-size:14px;font-weight:500}
+.terms-text{color:var(--gray);font-size:11px;text-align:center;margin-top:12px;line-height:1.6}
+.terms-text span{color:var(--blue)}
+.progress-dots{display:flex;gap:6px;justify-content:center;margin-top:12px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border)}
+.dot.active{background:var(--blue);width:24px;border-radius:4px}
+/* LOGIN */
+.forgot-link{color:var(--blue);font-size:13px;text-align:right;margin-top:6px}
+.signup-link{color:var(--gray);font-size:13px;text-align:center;margin-top:16px}
+.signup-link span{color:var(--blue);font-weight:600}
+.phone-field{display:flex;gap:10px}
+.country-code{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px 12px;color:var(--white);font-size:14px;font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:6px}
+</style>
+</head>
+<body>
+<h1>OnRaasta <span>Mockups</span> — Auth Screens</h1>
+<p class="subtitle">Screens 01–04 · Authentication & Onboarding Module</p>
+
+<div class="screens-row">
+
+<!-- SCREEN 01: SPLASH -->
+<div class="screen-wrap">
+  <div class="screen-label">01 · Splash Screen</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div class="splash">
+      <div class="logo-ring">
+        <svg viewBox="0 0 52 52" fill="none">
+          <path d="M26 8C16 8 8 16 8 26s8 18 18 18 18-8 18-18S36 8 26 8z" stroke="white" stroke-width="2.5" fill="none"/>
+          <path d="M20 26l4 4 8-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="26" cy="26" r="4" fill="white" opacity="0.2"/>
+          <path d="M26 14v4M26 34v4M14 26h4M34 26h4" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+        </svg>
+      </div>
+      <div class="app-name">On<span>Raasta</span></div>
+      <div class="tagline">Pakistan's AI-Powered Roadside Assistance & Mechanic Booking</div>
+      <div class="splash-btns">
+        <button class="btn-primary">Get Started →</button>
+        <button class="btn-outline">I already have an account</button>
+      </div>
+      <div class="splash-footer">By continuing you agree to our Terms & Privacy Policy</div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 02: ROLE SELECTION -->
+<div class="screen-wrap">
+  <div class="screen-label">02 · Role Selection</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div class="role-screen">
+      <div class="back-btn"><span style="color:white;font-size:18px">←</span></div>
+      <div class="screen-title">Who are<br>you joining as?</div>
+      <div class="screen-subtitle">Choose your role to get the right experience for you.</div>
+      <div class="role-cards">
+        <div class="role-card active">
+          <div class="role-icon driver">🚗</div>
+          <div class="role-info">
+            <h3>I'm a Driver</h3>
+            <p>Get roadside help fast when your vehicle breaks down</p>
+            <div class="role-features" style="margin-top:8px">
+              <div class="feature-item"><span>✓</span> AI Fault Diagnosis</div>
+              <div class="feature-item"><span>✓</span> Real-time mechanic tracking</div>
+              <div class="feature-item"><span>✓</span> Transparent bid pricing</div>
+            </div>
+          </div>
+          <div class="check-circle">✓</div>
+        </div>
+        <div class="role-card">
+          <div class="role-icon mechanic">🔧</div>
+          <div class="role-info">
+            <h3>I'm a Mechanic</h3>
+            <p>Accept nearby jobs, earn more, build your reputation</p>
+            <div class="role-features" style="margin-top:8px">
+              <div class="feature-item"><span style="color:var(--gray)">○</span> Receive job requests</div>
+              <div class="feature-item"><span style="color:var(--gray)">○</span> Set your own prices</div>
+              <div class="feature-item"><span style="color:var(--gray)">○</span> Grow your business</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="role-continue">
+        <button class="btn-primary" style="width:100%">Continue as Driver →</button>
+        <div class="progress-dots" style="margin-top:16px">
+          <div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 03: SIGN UP -->
+<div class="screen-wrap">
+  <div class="screen-label">03 · Sign Up</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div class="auth-screen">
+      <div class="back-btn" style="width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin-bottom:24px"><span style="color:white;font-size:18px">←</span></div>
+      <div class="screen-title">Create your<br>account</div>
+      <div class="screen-subtitle" style="color:var(--gray);font-size:13px;margin-top:8px;margin-bottom:24px">Join thousands of drivers & mechanics on OnRaasta</div>
+      <div class="form-group">
+        <span class="form-label">Full Name</span>
+        <div class="form-input focused">
+          <span class="input-icon">👤</span>
+          <span class="input-text">Ali Hassan</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <span class="form-label">Mobile Number</span>
+        <div class="phone-field">
+          <div class="country-code">🇵🇰 +92</div>
+          <div class="form-input" style="flex:1"><span class="input-text">300 1234567</span></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <span class="form-label">Email Address</span>
+        <div class="form-input">
+          <span class="input-icon">✉️</span>
+          <span class="input-placeholder">ali@example.com</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <span class="form-label">Password</span>
+        <div class="form-input">
+          <span class="input-icon">🔒</span>
+          <span class="input-placeholder">••••••••</span>
+        </div>
+      </div>
+      <button class="btn-primary" style="width:100%;margin-top:8px">Send OTP & Verify →</button>
+      <div class="divider-row"><div class="divider-line"></div><span class="divider-text">or sign up with</span><div class="divider-line"></div></div>
+      <div class="social-btn">
+        <span style="font-size:18px">G</span>
+        <span>Continue with Google</span>
+      </div>
+      <div class="terms-text" style="margin-top:12px">By signing up you agree to our <span>Terms of Service</span> and <span>Privacy Policy</span></div>
+      <div class="signup-link">Already have an account? <span>Sign In</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 04: LOGIN + OTP -->
+<div class="screen-wrap">
+  <div class="screen-label">04 · Login / OTP</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▲ 5G 🔋</span></div>
+    <div class="auth-screen">
+      <div class="back-btn" style="width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin-bottom:24px"><span style="color:white;font-size:18px">←</span></div>
+      <div class="screen-title">Welcome<br>back 👋</div>
+      <div class="screen-subtitle" style="color:var(--gray);font-size:13px;margin-top:8px;margin-bottom:24px">Sign in to your OnRaasta account</div>
+      <div class="form-group">
+        <span class="form-label">Mobile Number</span>
+        <div class="phone-field">
+          <div class="country-code">🇵🇰 +92</div>
+          <div class="form-input focused" style="flex:1"><span class="input-text">300 1234567</span></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <span class="form-label">Password</span>
+        <div class="form-input">
+          <span class="input-icon">🔒</span>
+          <span class="input-text">••••••••</span>
+        </div>
+        <div class="forgot-link">Forgot password?</div>
+      </div>
+      <button class="btn-primary" style="width:100%;margin-top:4px">Sign In →</button>
+      <div class="divider-row"><div class="divider-line"></div><span class="divider-text">or verify with OTP</span><div class="divider-line"></div></div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:12px">
+        <div style="color:var(--gray);font-size:12px;text-align:center;margin-bottom:12px">Enter the 4-digit code sent to <span style="color:var(--white)">+92 300 ****567</span></div>
+        <div class="otp-area">
+          <div class="otp-box filled">3</div>
+          <div class="otp-box filled">7</div>
+          <div class="otp-box filled">2</div>
+          <div class="otp-box" style="border-color:var(--blue)"><span style="color:var(--blue);font-size:24px">|</span></div>
+          <div class="otp-box"></div>
+          <div class="otp-box"></div>
+        </div>
+        <div style="color:var(--gray);font-size:12px;text-align:center">Resend code in <span style="color:var(--orange)">00:45</span></div>
+      </div>
+      <button class="btn-outline" style="width:100%">Verify OTP</button>
+      <div class="signup-link" style="margin-top:16px">Don't have an account? <span>Sign Up</span></div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>
