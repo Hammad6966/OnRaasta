@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final response = await apiDio.post(
+      final response = await ApiService.instance.dio.post(
         '/auth/login',
         data: {
           'phone':    _phoneController.text.trim(),

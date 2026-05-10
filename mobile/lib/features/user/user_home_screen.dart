@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/sos_button.dart';
-import '../../services/api_service.dart'; // exports: apiDio
+import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/socket_service.dart';
 
@@ -83,7 +83,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
   Future<void> _fetchNearbyMechanics(double lat, double lng) async {
     try {
-      final res = await apiDio.get(
+      final res = await ApiService.instance.dio.get(
         '/mechanics/nearby',
         queryParameters: {'lat': lat, 'lng': lng},
       );

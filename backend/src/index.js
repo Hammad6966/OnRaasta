@@ -43,6 +43,15 @@ initSocket(server);
 
 // ── MongoDB with retry ────────────────────────────────────────────────────────
 
+mongoose.connection.once('open', async () => {
+  try {
+    await mongoose.connection.collection('users').dropIndex('email_1');
+    console.log('Dropped email index');
+  } catch (e) {
+    // index may not exist — safe to ignore
+  }
+});
+
 const connectWithRetry = async (attempt = 1) => {
   try {
     await mongoose.connect(process.env.MONGO_URI);

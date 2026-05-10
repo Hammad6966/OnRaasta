@@ -1,6 +1,7 @@
-const bcrypt = require('bcryptjs');
-const jwt    = require('jsonwebtoken');
-const User   = require('../models/User');
+const bcrypt   = require('bcryptjs');
+const jwt      = require('jsonwebtoken');
+const User     = require('../models/User');
+const Mechanic = require('../models/Mechanic');
 const { sendOtp, verifyOtp: verifyOtpService } = require('../services/twilio.service');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -33,28 +34,43 @@ const userPayload = (user) => ({
  */
 const register = async (req, res, next) => {
   try {
-    console.log('register body:', req.body);
-
     const existing = await User.findOne({ phone: req.body.phone });
-    console.log('Existing user found:', existing);
 
-    if (existing && existing.isVerified === true) {
-      return res.status(409).json({ success: false, message: 'Phone already registered. Please login.' });
+    if (existing) {
+      if (existing.isVerified === true) {
+        return res.status(409).json({
+          success: false,
+          message: 'Phone already registered. Please login.',
+        });
+      } else {
+        // User exists but not verified - update password and resend OTP
+        existing.passwordHash = await bcrypt.hash(req.body.password, 12);
+        existing.role = req.body.role || 'user';
+        existing.name = req.body.name;
+        await existing.save();
+        await sendOtp(req.body.phone);
+        return res.status(201).json({
+          success: true,
+          message: 'OTP sent to +92' + req.body.phone,
+        });
+      }
     }
 
-    if (existing && existing.isVerified === false) {
-      existing.name         = req.body.name;
-      existing.passwordHash = await bcrypt.hash(req.body.password, 12);
-      await existing.save();
-      await sendOtp(req.body.phone);
-      return res.status(201).json({ success: true, message: 'OTP resent' });
-    }
-
-    // No existing user — create fresh
+    // New user
     const passwordHash = await bcrypt.hash(req.body.password, 12);
-    await User.create({ name: req.body.name, phone: req.body.phone, passwordHash });
+    const user = new User({
+      name: req.body.name,
+      phone: req.body.phone,
+      passwordHash,
+      role: req.body.role || 'user',
+      isVerified: false,
+    });
+    await user.save();
     await sendOtp(req.body.phone);
-    return res.status(201).json({ success: true, message: 'OTP sent' });
+    return res.status(201).json({
+      success: true,
+      message: 'OTP sent to +92' + req.body.phone,
+    });
   } catch (err) {
     next(err);
   }
@@ -83,6 +99,24 @@ const verifyOtp = async (req, res, next) => {
 
     user.isVerified = true;
     await user.save();
+
+    if (user.role === 'mechanic') {
+      const existingMechanic = await Mechanic.findOne({ userId: user._id });
+      if (!existingMechanic) {
+        await Mechanic.create({
+          userId:        user._id,
+          skills:        [],
+          serviceRadius: 15,
+          isOnline:      false,
+          isApproved:    false,
+          rating:        0,
+          totalJobs:     0,
+          earnings:      0,
+          lat:           0,
+          lng:           0,
+        });
+      }
+    }
 
     const { accessToken, refreshToken } = generateTokens(user);
 
