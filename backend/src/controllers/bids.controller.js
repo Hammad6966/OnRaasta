@@ -1,6 +1,7 @@
-const Bid      = require('../models/Bid');
-const Job      = require('../models/Job');
-const Mechanic = require('../models/Mechanic');
+const Bid            = require('../models/Bid');
+const Job            = require('../models/Job');
+const Mechanic       = require('../models/Mechanic');
+const { getIo }      = require('../socket/socket');
 
 // ── POST /api/bids — mechanic submits a bid ───────────────────────────────────
 
@@ -28,6 +29,29 @@ const createBid = async (req, res) => {
 
     // Move job into bidding state
     await Job.findByIdAndUpdate(jobId, { status: 'bidding' });
+
+    // Emit bid:new to the job owner's socket room
+    try {
+      const io = getIo();
+      const job = await Job.findById(jobId).populate('userId');
+      if (io && job) {
+        io.to(`user_${job.userId._id}`).emit('bid:new', {
+          bidId:        bid._id,
+          jobId:        bid.jobId,
+          mechanicId:   mechanic._id,
+          mechanicName: req.user.name || 'Mechanic',
+          labourCost:   bid.labourCost,
+          partsCost:    bid.partsCost,
+          totalCost:    bid.totalCost,
+          eta:          bid.eta,
+          status:       bid.status,
+          rating:       mechanic.rating || 0,
+          skills:       mechanic.skills || [],
+        });
+      }
+    } catch (e) {
+      console.log('Socket emit error:', e.message);
+    }
 
     return res.status(201).json({ success: true, bid });
   } catch (error) {

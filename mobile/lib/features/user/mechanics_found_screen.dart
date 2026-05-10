@@ -127,6 +127,12 @@ class _MechanicsFoundScreenState extends State<MechanicsFoundScreen> {
       SocketService.instance.connect(token);
     }
 
+    // Join the user's personal room so the server can push bid:new events
+    final userId = await AuthService.instance.getUserId();
+    if (userId != null && userId.isNotEmpty) {
+      SocketService.instance.emit('join_room', {'room': 'user_$userId'});
+    }
+
     SocketService.instance.on('bid:new', (data) {
       final raw = data is Map ? Map<String, dynamic>.from(data as Map) : <String, dynamic>{};
       final newBid = BidCard.fromJson(raw)..isNew = true;

@@ -1,5 +1,11 @@
 const { Server } = require('socket.io');
 
+// ── Singleton io instance ─────────────────────────────────────────────────────
+
+let _io;
+
+const getIo = () => _io;
+
 // ── Haversine distance (km) ───────────────────────────────────────────────────
 
 const haversine = (lat1, lng1, lat2, lng2) => {
@@ -22,12 +28,20 @@ const onlineMechanics = new Map();
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 const initSocket = (server) => {
-  const io = new Server(server, {
+  _io = new Server(server, {
     cors: { origin: '*' },
   });
 
+  const io = _io;
   io.on('connection', (socket) => {
     console.log(`[Socket] connected: ${socket.id}`);
+
+    // ── Room join (clients request their own room) ─────────────────────────
+
+    socket.on('join_room', ({ room }) => {
+      socket.join(room);
+      console.log(`[Socket] ${socket.id} joined room: ${room}`);
+    });
 
     // ── Mechanic presence ──────────────────────────────────────────────────
 
@@ -108,7 +122,7 @@ const initSocket = (server) => {
     });
   });
 
-  return io;
+  return _io;
 };
 
-module.exports = { initSocket };
+module.exports = { initSocket, getIo };
