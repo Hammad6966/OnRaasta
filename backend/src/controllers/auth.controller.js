@@ -33,29 +33,28 @@ const userPayload = (user) => ({
  */
 const register = async (req, res, next) => {
   try {
-    const { name, phone, password } = req.body;
+    console.log('register body:', req.body);
 
-    // Block if a verified account already exists for this phone
-    const verified = await User.findOne({ phone, isVerified: true });
-    if (verified) {
-      return res.status(409).json({ success: false, message: 'Phone number already registered' });
+    const existing = await User.findOne({ phone: req.body.phone });
+    console.log('Existing user found:', existing);
+
+    if (existing && existing.isVerified === true) {
+      return res.status(409).json({ success: false, message: 'Phone already registered. Please login.' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    // Allow re-registration for still-unverified accounts (e.g. resend flow)
-    let user = await User.findOne({ phone, isVerified: false });
-    if (user) {
-      user.name = name;
-      user.passwordHash = passwordHash;
-      await user.save();
-    } else {
-      user = await User.create({ name, phone, passwordHash });
+    if (existing && existing.isVerified === false) {
+      existing.name         = req.body.name;
+      existing.passwordHash = await bcrypt.hash(req.body.password, 12);
+      await existing.save();
+      await sendOtp(req.body.phone);
+      return res.status(201).json({ success: true, message: 'OTP resent' });
     }
 
-    await sendOtp(phone);
-
-    return res.status(201).json({ success: true, message: `OTP sent to +92${phone}` });
+    // No existing user — create fresh
+    const passwordHash = await bcrypt.hash(req.body.password, 12);
+    await User.create({ name: req.body.name, phone: req.body.phone, passwordHash });
+    await sendOtp(req.body.phone);
+    return res.status(201).json({ success: true, message: 'OTP sent' });
   } catch (err) {
     next(err);
   }
@@ -67,14 +66,17 @@ const register = async (req, res, next) => {
  */
 const verifyOtp = async (req, res, next) => {
   try {
-    const { phone, code } = req.body;
+    console.log('verifyOtp body:', req.body);
+    const { phone, otp, code } = req.body;
+    const otpCode = otp || code;
+    console.log('phone:', phone, 'otpCode:', otpCode, 'DEV_OTP:', process.env.DEV_OTP);
 
     const user = await User.findOne({ phone });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const result = await verifyOtpService(phone, code);
+    const result = await verifyOtpService(phone, otpCode);
     if (result.status !== 'approved') {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }

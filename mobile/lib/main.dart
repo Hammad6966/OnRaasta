@@ -13,8 +13,7 @@ import 'features/auth/role_selection_screen.dart';
 import 'features/auth/signup_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/otp_screen.dart';
-import 'features/mechanic/mechanic_home_screen.dart';
-import 'features/user/user_home_screen.dart';
+import 'core/theme/app_colors.dart';
 import 'providers/theme_provider.dart';
 
 Future<void> main() async {
@@ -68,7 +67,10 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/signup',
-      builder: (_, __) => const SignupScreen(),
+      builder: (_, state) {
+        final role = (state.extra as String?) ?? 'user';
+        return SignupScreen(role: role);
+      },
     ),
     GoRoute(
       path: '/login',
@@ -76,18 +78,37 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/otp',
-      builder: (context, state) {
-        final phone = state.uri.queryParameters['phone'] ?? '';
-        return OtpScreen(phone: phone);
+      builder: (_, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return OtpScreen(
+          phone: extra['phone'] as String? ?? '',
+          role:  extra['role']  as String? ?? 'user',
+        );
       },
     ),
     GoRoute(
       path: '/user-home',
-      builder: (_, __) => const UserHomeScreen(),
+      builder: (_, __) => Scaffold(
+        backgroundColor: AppColors.darkBg,
+        body: Center(
+          child: Text(
+            'User Home - Coming Soon',
+            style: GoogleFonts.dmSans(color: Colors.white),
+          ),
+        ),
+      ),
     ),
     GoRoute(
       path: '/mechanic-home',
-      builder: (_, __) => const MechanicHomeScreen(),
+      builder: (_, __) => Scaffold(
+        backgroundColor: AppColors.darkBg,
+        body: Center(
+          child: Text(
+            'Mechanic Home - Coming Soon',
+            style: GoogleFonts.dmSans(color: Colors.white),
+          ),
+        ),
+      ),
     ),
   ],
 );
