@@ -5,7 +5,8 @@
       "Bash(npx create-next-app@14 admin --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\")",
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(node src/scripts/seed_admin.js)"
+      "Bash(node src/scripts/seed_admin.js)",
+      "Bash(xargs sed:*)"
     ]
   }
 }

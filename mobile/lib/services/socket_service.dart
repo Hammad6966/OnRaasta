@@ -1,32 +1,44 @@
-import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../core/constants/api_constants.dart';
 
 class SocketService {
-  SocketService._();
-  static final SocketService instance = SocketService._();
+  static final SocketService _instance = SocketService._internal();
+  factory SocketService() => _instance;
+  SocketService._internal();
 
-  io.Socket? _socket;
+  IO.Socket? _socket;
 
-  bool get isConnected => _socket?.connected ?? false;
-
-  /// Initialise and connect the socket with a JWT for auth handshake.
   void connect(String token) {
-    if (isConnected) return;
+    if (_socket != null && _socket!.connected) {
+      print('[Socket] Already connected');
+      return;
+    }
 
-    _socket = io.io(
+    _socket = IO.io(
       ApiConstants.socketUrl,
-      <String, dynamic>{
-        'transports':   ['websocket'],
-        'autoConnect':  false,
-        'extraHeaders': {'Authorization': 'Bearer $token'},
-      },
+      IO.OptionBuilder()
+          .setTransports(['websocket'])
+          .setAuth({'token': token})
+          .enableAutoConnect()
+          .enableReconnection()
+          .setReconnectionAttempts(10)
+          .setReconnectionDelay(1000)
+          .build(),
     );
 
-    _socket!.connect();
+    _socket!.onConnect((_) {
+      print('[Socket] Connected: ${_socket!.id}');
+    });
 
-    _socket!.onConnect((_)    => print('[Socket] connected'));
-    _socket!.onDisconnect((_) => print('[Socket] disconnected'));
-    _socket!.onError((e)      => print('[Socket] error: $e'));
+    _socket!.onDisconnect((_) {
+      print('[Socket] Disconnected');
+    });
+
+    _socket!.onConnectError((err) {
+      print('[Socket] Connection error: $err');
+    });
+
+    _socket!.connect();
   }
 
   void disconnect() {
@@ -35,14 +47,22 @@ class SocketService {
   }
 
   void emit(String event, dynamic data) {
-    _socket?.emit(event, data);
+    if (_socket != null && _socket!.connected) {
+      _socket!.emit(event, data);
+      print('[Socket] Emitted $event: $data');
+    } else {
+      print('[Socket] Not connected, cannot emit $event');
+    }
   }
 
   void on(String event, Function(dynamic) callback) {
     _socket?.on(event, callback);
+    print('[Socket] Listening for $event');
   }
 
   void off(String event) {
     _socket?.off(event);
   }
+
+  bool get isConnected => _socket?.connected ?? false;
 }

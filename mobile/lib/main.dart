@@ -17,11 +17,20 @@ import 'core/theme/app_colors.dart';
 import 'features/user/user_home_screen.dart';
 import 'features/user/report_breakdown_screen.dart';
 import 'features/user/mechanics_found_screen.dart';
-import 'features/mechanic/mechanic_home_screen.dart';
+import 'features/mechanic/mechanic_home_screen.dart' show MechanicHomeWrapper;
+import 'features/mechanic/active_job_screen.dart';
 import 'features/user/user_profile_screen.dart';
 import 'features/mechanic/new_request_detail.dart';
 import 'features/mechanic/submit_bid_screen.dart';
 import 'features/user/mechanic_profile_view.dart';
+import 'features/user/live_tracking_screen.dart';
+import 'features/user/job_in_progress_screen.dart';
+import 'features/user/rate_review_screen.dart';
+import 'features/user/job_history_screen.dart';
+import 'features/mechanic/mechanic_profile_edit.dart';
+import 'features/mechanic/mechanic_earnings_screen.dart';
+import 'features/mechanic/document_upload_screen.dart';
+import 'features/mechanic/mechanic_ratings_screen.dart';
 import 'providers/theme_provider.dart';
 
 Future<void> main() async {
@@ -118,15 +127,10 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/live-tracking',
-      builder: (_, __) => Scaffold(
-        backgroundColor: AppColors.darkBg,
-        body: Center(
-          child: Text(
-            'Live Tracking - Coming Soon',
-            style: GoogleFonts.dmSans(color: Colors.white),
-          ),
-        ),
-      ),
+      builder: (_, state) {
+        final bid = state.extra as Map<String, dynamic>? ?? {};
+        return LiveTrackingScreen(bid: bid);
+      },
     ),
     GoRoute(
       path: '/user-profile',
@@ -134,7 +138,7 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/mechanic-home',
-      builder: (_, __) => const MechanicHomeScreen(),
+      builder: (_, __) => const MechanicHomeWrapper(),
     ),
     GoRoute(
       path: '/new-request-detail',
@@ -149,6 +153,46 @@ final _router = GoRouter(
         final job = state.extra as Map<String, dynamic>? ?? {};
         return SubmitBidScreen(job: job);
       },
+    ),
+    GoRoute(
+      path: '/job-in-progress',
+      builder: (context, state) => JobInProgressScreen(
+        bid: state.extra as Map<String, dynamic>,
+      ),
+    ),
+    GoRoute(
+      path: '/active-job',
+      builder: (_, state) {
+        final job = state.extra as Map<String, dynamic>? ?? {};
+        return ActiveJobScreen(job: job);
+      },
+    ),
+    GoRoute(
+      path: '/rate-review',
+      builder: (_, state) {
+        final bid = state.extra as Map<String, dynamic>? ?? {};
+        return RateReviewScreen(bid: bid);
+      },
+    ),
+    GoRoute(
+      path: '/job-history',
+      builder: (_, __) => const JobHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/mechanic-profile-edit',
+      builder: (_, __) => const MechanicProfileEditScreen(),
+    ),
+    GoRoute(
+      path: '/mechanic-earnings',
+      builder: (_, __) => const MechanicEarningsScreen(),
+    ),
+    GoRoute(
+      path: '/document-upload',
+      builder: (_, __) => const DocumentUploadScreen(),
+    ),
+    GoRoute(
+      path: '/mechanic-ratings',
+      builder: (_, __) => const MechanicRatingsScreen(),
     ),
   ],
 );
@@ -167,15 +211,7 @@ class _UserHomeWrapperState extends State<UserHomeWrapper> {
 
   static const _pages = <Widget>[
     UserHomeScreen(),
-    Scaffold(
-      backgroundColor: AppColors.darkBg,
-      body: Center(
-        child: Text(
-          'History Coming Soon',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
-    ),
+    JobHistoryScreen(),
     UserProfileScreen(),
   ];
 

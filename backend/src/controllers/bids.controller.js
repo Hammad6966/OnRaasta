@@ -33,12 +33,14 @@ const createBid = async (req, res) => {
     // Emit bid:new to the job owner's socket room
     try {
       const io = getIo();
-      const job = await Job.findById(jobId).populate('userId');
+      const job = await Job.findById(jobId);
       if (io && job) {
-        io.to(`user_${job.userId._id}`).emit('bid:new', {
-          bidId:        bid._id,
-          jobId:        bid.jobId,
-          mechanicId:   mechanic._id,
+        const userRoom = `user_${job.userId.toString()}`;
+        console.log('[Socket] Emitting bid:new to room:', userRoom);
+        io.to(userRoom).emit('bid:new', {
+          bidId:        bid._id.toString(),
+          jobId:        bid.jobId.toString(),
+          mechanicId:   mechanic._id.toString(),
           mechanicName: req.user.name || 'Mechanic',
           labourCost:   bid.labourCost,
           partsCost:    bid.partsCost,
@@ -47,10 +49,12 @@ const createBid = async (req, res) => {
           status:       bid.status,
           rating:       mechanic.rating || 0,
           skills:       mechanic.skills || [],
+          isNew:        true,
         });
+        console.log('[Socket] bid:new emitted successfully');
       }
     } catch (e) {
-      console.log('Socket emit error:', e.message);
+      console.log('bid:new emit error:', e.message);
     }
 
     return res.status(201).json({ success: true, bid });

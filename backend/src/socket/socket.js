@@ -36,6 +36,21 @@ const initSocket = (server) => {
   io.on('connection', (socket) => {
     console.log(`[Socket] connected: ${socket.id}`);
 
+    // Auto-join user room from auth token
+    try {
+      const token = socket.handshake.auth?.token;
+      if (token) {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userRoom = `user_${decoded.id}`;
+        socket.join(userRoom);
+        console.log(`[Socket] Auto-joined room: ${userRoom}`);
+        socket.userId = decoded.id;
+      }
+    } catch (e) {
+      console.log('[Socket] Auth error:', e.message);
+    }
+
     // ── Room join (clients request their own room) ─────────────────────────
 
     socket.on('join_room', ({ room }) => {
@@ -45,42 +60,46 @@ const initSocket = (server) => {
 
     // ── Mechanic presence ──────────────────────────────────────────────────
 
-    socket.on('mechanic:go_online', ({ mechanicId, lat, lng }) => {
-      onlineMechanics.set(String(mechanicId), { socketId: socket.id, mechanicId, lat, lng });
-      socket.join(`mechanic_${mechanicId}`);
-      console.log(`[Socket] mechanic ${mechanicId} online`);
+    socket.on('mechanic:go_online', (data) => {
+      onlineMechanics.set(socket.id, {
+        socketId:  socket.id,
+        mechanicId: data.mechanicId,
+        lat: data.lat,
+        lng: data.lng,
+      });
+      socket.join(`mechanic_${data.mechanicId}`);
+      console.log('[Socket] Mechanic online:', data.mechanicId, 'Total online:', onlineMechanics.size);
     });
 
     socket.on('mechanic:go_offline', ({ mechanicId }) => {
-      onlineMechanics.delete(String(mechanicId));
+      onlineMechanics.delete(socket.id);
       console.log(`[Socket] mechanic ${mechanicId} offline`);
     });
 
-    socket.on('mechanic:update_location', ({ mechanicId, lat, lng }) => {
-      const entry = onlineMechanics.get(String(mechanicId));
+    socket.on('mechanic:update_location', ({ lat, lng }) => {
+      const entry = onlineMechanics.get(socket.id);
       if (entry) {
         entry.lat = lat;
         entry.lng = lng;
-        // socketId unchanged — no need to re-set
       }
     });
 
     // ── Job events ─────────────────────────────────────────────────────────
 
     // Broadcast new job to all online mechanics within 15 km
-    socket.on('job:created', ({ jobId, lat, lng, userId }) => {
-      onlineMechanics.forEach((mechanic) => {
-        const dist = haversine(lat, lng, mechanic.lat, mechanic.lng);
-        if (dist <= 15) {
-          io.to(mechanic.socketId).emit('job:new_request', {
-            jobId,
-            lat,
-            lng,
-            userId,
-            distance: parseFloat(dist.toFixed(2)),
-          });
+    socket.on('job:created', (data) => {
+      console.log('[Socket] job:created received, online mechanics:', onlineMechanics.size);
+      const { lat, lng } = data;
+      let count = 0;
+      onlineMechanics.forEach((mechanic, socketId) => {
+        const distance = haversine(lat, lng, mechanic.lat, mechanic.lng);
+        console.log('[Socket] Mechanic distance:', distance, 'km');
+        if (distance <= 15) {
+          io.to(socketId).emit('job:new_request', data);
+          count++;
         }
       });
+      console.log('[Socket] Broadcast to', count, 'mechanics');
     });
 
     socket.on('job:status_changed', ({ jobId, status }) => {
@@ -112,12 +131,11 @@ const initSocket = (server) => {
     // ── Disconnect cleanup ─────────────────────────────────────────────────
 
     socket.on('disconnect', () => {
-      onlineMechanics.forEach((mechanic, mechanicId) => {
-        if (mechanic.socketId === socket.id) {
-          onlineMechanics.delete(mechanicId);
-          console.log(`[Socket] mechanic ${mechanicId} auto-offlined on disconnect`);
-        }
-      });
+      const entry = onlineMechanics.get(socket.id);
+      if (entry) {
+        onlineMechanics.delete(socket.id);
+        console.log(`[Socket] mechanic ${entry.mechanicId} auto-offlined on disconnect`);
+      }
       console.log(`[Socket] disconnected: ${socket.id}`);
     });
   });
@@ -125,4 +143,21 @@ const initSocket = (server) => {
   return _io;
 };
 
-module.exports = { initSocket, getIo };
+// ── Server-side broadcast (called from controller after job creation) ─────────
+
+function broadcastJobToMechanics(jobData) {
+  console.log('[Socket] Broadcasting job to mechanics. Online count:', onlineMechanics.size);
+  const { lat, lng } = jobData;
+  let count = 0;
+  onlineMechanics.forEach((mechanic, socketId) => {
+    const distance = haversine(lat, lng, mechanic.lat, mechanic.lng);
+    console.log('[Socket] Mechanic', mechanic.mechanicId, 'distance:', distance.toFixed(2), 'km');
+    if (distance <= 15) {
+      _io.to(socketId).emit('job:new_request', jobData);
+      count++;
+    }
+  });
+  console.log('[Socket] Broadcast to', count, 'mechanics');
+}
+
+module.exports = { initSocket, getIo, broadcastJobToMechanics };

@@ -40,7 +40,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   Future<void> _init() async {
     final token = await AuthService.instance.getAccessToken();
     if (token != null) {
-      SocketService.instance.connect(token);
+      SocketService().connect(token);
     }
     await _getLocation();
   }
@@ -177,7 +177,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
     if (confirmed == true) {
       final loc = _userLocation ?? _lahoreFallback;
-      SocketService.instance.emit('sos:triggered', {
+      SocketService().emit('sos:triggered', {
         'lat': loc.latitude,
         'lng': loc.longitude,
       });
@@ -284,7 +284,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           // ── Layer 3: Mechanics count pill ───────────────────────────────
           if (_nearbyMechanics.isNotEmpty)
             Positioned(
-              bottom: 276,
+              bottom: 330,
               left: 0,
               right: 0,
               child: Center(
@@ -307,14 +307,14 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
           // ── Layer 4: SOS button ─────────────────────────────────────────
           Positioned(
-            bottom: 210,
+            bottom: 272,
             right: 16,
             child: SosButton(onPressed: _handleSos),
           ),
 
           // ── Layer 5: Recenter FAB ───────────────────────────────────────
           Positioned(
-            bottom: 210,
+            bottom: 272,
             left: 16,
             child: GestureDetector(
               onTap: _recenter,
@@ -412,8 +412,7 @@ class _BottomPanel extends StatelessWidget {
                     child: Row(
                       children: [
                         Container(
-                          width: 52,
-                          height: 52,
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(14),
@@ -480,13 +479,33 @@ class _BottomPanel extends StatelessWidget {
                 const SizedBox(height: 10),
 
                 // Services grid
-                Row(
+                const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    _ServiceChip(icon: Icons.build_rounded,       label: 'Engine Fix'),
-                    _ServiceChip(icon: Icons.battery_charging_full_rounded, label: 'Battery Jump'),
-                    _ServiceChip(icon: Icons.tire_repair_rounded, label: 'Flat Tire'),
-                    _ServiceChip(icon: Icons.local_gas_station_rounded, label: 'Fuel Delivery'),
+                  children: [
+                    _ServiceChip(
+                      icon: Icons.settings_rounded,
+                      label: 'Engine Fix',
+                      color: Color(0xFFEF4444),
+                      iconBg: Color(0x26EF4444),
+                    ),
+                    _ServiceChip(
+                      icon: Icons.battery_charging_full_rounded,
+                      label: 'Battery Jump',
+                      color: Color(0xFF22C55E),
+                      iconBg: Color(0x2622C55E),
+                    ),
+                    _ServiceChip(
+                      icon: Icons.tire_repair_rounded,
+                      label: 'Flat Tire',
+                      color: Color(0xFFF59E0B),
+                      iconBg: Color(0x26F59E0B),
+                    ),
+                    _ServiceChip(
+                      icon: Icons.local_gas_station_rounded,
+                      label: 'Fuel Delivery',
+                      color: Color(0xFFF97316),
+                      iconBg: Color(0x26F97316),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -504,7 +523,15 @@ class _BottomPanel extends StatelessWidget {
 class _ServiceChip extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _ServiceChip({required this.icon, required this.label});
+  final Color color;
+  final Color iconBg;
+
+  const _ServiceChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.iconBg,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -519,14 +546,22 @@ class _ServiceChip extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: AppColors.darkPrimary, size: 32),
-          const SizedBox(height: 8),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 6),
           Text(
             label,
             style: const TextStyle(
               color: Colors.white,
               fontFamily: 'DM Sans',
-              fontSize: 12,
+              fontSize: 11,
             ),
             textAlign: TextAlign.center,
             maxLines: 2,

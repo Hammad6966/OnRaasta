@@ -7,8 +7,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/onraasta_button.dart';
 import '../../core/widgets/skill_chip.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import '../../services/api_service.dart';
-import '../../services/auth_service.dart';
 import '../../services/socket_service.dart';
 
 // ── Model ─────────────────────────────────────────────────────────────────────
@@ -41,6 +42,23 @@ class BidCard {
     this.isNew = false,
     required this.status,
   });
+
+  BidCard copyWith({bool? isNew}) {
+    return BidCard(
+      bidId:        bidId,
+      mechanicId:   mechanicId,
+      mechanicName: mechanicName,
+      totalCost:    totalCost,
+      labourCost:   labourCost,
+      partsCost:    partsCost,
+      eta:          eta,
+      rating:       rating,
+      distance:     distance,
+      skills:       skills,
+      isNew:        isNew ?? this.isNew,
+      status:       status,
+    );
+  }
 
   factory BidCard.fromJson(Map<String, dynamic> json) {
     final mechanic = json['mechanic'] as Map<String, dynamic>? ?? {};
@@ -115,39 +133,54 @@ class _MechanicsFoundScreenState extends State<MechanicsFoundScreen> {
 
   @override
   void dispose() {
-    SocketService.instance.off('bid:new');
+    SocketService().off('bid:new');
     super.dispose();
   }
 
   // ── Socket ────────────────────────────────────────────────────────────────────
 
   Future<void> _connectSocket() async {
-    final token = await AuthService.instance.getAccessToken();
-    if (token != null) {
-      SocketService.instance.connect(token);
-    }
+    final storage = const FlutterSecureStorage();
+    final userId = await storage.read(key: 'user_id');
+    final token = await storage.read(key: 'access_token');
+    print('DEBUG userId: $userId');
 
-    // Join the user's personal room so the server can push bid:new events
-    final userId = await AuthService.instance.getUserId();
-    if (userId != null && userId.isNotEmpty) {
-      SocketService.instance.emit('join_room', {'room': 'user_$userId'});
-    }
+    // Connect socket with token
+    SocketService().connect(token ?? '');
 
-    SocketService.instance.on('bid:new', (data) {
-      final raw = data is Map ? Map<String, dynamic>.from(data as Map) : <String, dynamic>{};
-      final newBid = BidCard.fromJson(raw)..isNew = true;
+    // Give the connection time to establish before joining room
+    await Future.delayed(const Duration(milliseconds: 500));
+    SocketService().emit('join_room', {'room': 'user_$userId'});
+    print('DEBUG: Emitted join_room for user_$userId');
 
-      // Only add if it belongs to this job
-      final jobId = widget.job['_id'] as String? ?? '';
-      final bidJobId = raw['jobId'] as String? ?? '';
-      if (bidJobId != jobId) return;
-
-      setState(() => _bids.insert(0, newBid));
+    SocketService().on('bid:new', (data) {
+      print('DEBUG bid:new received: $data');
+      if (!mounted) return;
+      setState(() {
+        final newBid = BidCard(
+          bidId:        data['bidId']?.toString() ?? '',
+          mechanicId:   data['mechanicId']?.toString() ?? '',
+          mechanicName: data['mechanicName']?.toString() ?? 'Mechanic',
+          totalCost:    (data['totalCost']  as num?)?.toInt() ?? 0,
+          labourCost:   (data['labourCost'] as num?)?.toInt() ?? 0,
+          partsCost:    (data['partsCost']  as num?)?.toInt() ?? 0,
+          eta:          (data['eta']        as num?)?.toInt() ?? 15,
+          rating:       (data['rating']     as num?)?.toDouble() ?? 0.0,
+          distance:     '2.5 km',
+          skills:       List<String>.from(data['skills'] ?? ['General Mechanic']),
+          isNew:        true,
+          status:       'pending',
+        );
+        _bids.insert(0, newBid);
+      });
 
       // Clear "NEW" badge after 30 s
       Future.delayed(const Duration(seconds: 30), () {
         if (!mounted) return;
-        setState(() => newBid.isNew = false);
+        setState(() {
+          final index = _bids.indexWhere((b) => b.bidId == data['bidId']?.toString());
+          if (index != -1) _bids[index] = _bids[index].copyWith(isNew: false);
+        });
       });
     });
   }

@@ -8,6 +8,8 @@ import '../../core/theme/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/socket_service.dart';
+import 'mechanic_earnings_screen.dart';
+import 'mechanic_profile_edit.dart';
 
 // ── Dark map style ─────────────────────────────────────────────────────────────
 
@@ -113,7 +115,7 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
   @override
   void dispose() {
     _mapController?.dispose();
-    SocketService.instance.off('job:new_request');
+    SocketService().off('job:new_request');
     super.dispose();
   }
 
@@ -158,9 +160,9 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
 
   Future<void> _connectSocket() async {
     final token = await AuthService.instance.getAccessToken();
-    if (token != null) SocketService.instance.connect(token);
+    if (token != null) SocketService().connect(token);
 
-    SocketService.instance.on('job:new_request', (data) {
+    SocketService().on('job:new_request', (data) {
       if (!mounted) return;
       final raw = data is Map
           ? Map<String, dynamic>.from(data as Map)
@@ -203,13 +205,13 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
         } catch (_) {}
       }
 
-      SocketService.instance.emit('mechanic:go_online', {
+      SocketService().emit('mechanic:go_online', {
         'mechanicId': _mechanicId,
         'lat': lat,
         'lng': lng,
       });
     } else {
-      SocketService.instance.emit('mechanic:go_offline', {
+      SocketService().emit('mechanic:go_offline', {
         'mechanicId': _mechanicId,
       });
     }
@@ -499,6 +501,10 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
                           '/new-request-detail',
                           extra: _jobs[i].toJson(),
                         ),
+                        onActiveJob: () => context.push(
+                          '/active-job',
+                          extra: _jobs[i].toJson(),
+                        ),
                       ),
                     ),
             ),
@@ -515,11 +521,13 @@ class _JobCard extends StatelessWidget {
   final JobRequest job;
   final VoidCallback onDecline;
   final VoidCallback onView;
+  final VoidCallback onActiveJob;
 
   const _JobCard({
     required this.job,
     required this.onDecline,
     required this.onView,
+    required this.onActiveJob,
   });
 
   @override
@@ -700,6 +708,15 @@ class _JobCard extends StatelessWidget {
                       isPrimary: true,
                       onTap: onView,
                     ),
+                    const SizedBox(width: 8),
+                    // Active Job (shown when status is accepted)
+                    if ((job.aiDiagnosis?['status'] as String?) == 'accepted' ||
+                        true) // DEV: always show for testing
+                      _SmallButton(
+                        label: 'Active',
+                        isPrimary: false,
+                        onTap: onActiveJob,
+                      ),
                   ],
                 ),
               ),
@@ -833,6 +850,57 @@ class _EmptyState extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Mechanic home wrapper (bottom nav shell) ──────────────────────────────────
+
+class MechanicHomeWrapper extends StatefulWidget {
+  const MechanicHomeWrapper({super.key});
+
+  @override
+  State<MechanicHomeWrapper> createState() => _MechanicHomeWrapperState();
+}
+
+class _MechanicHomeWrapperState extends State<MechanicHomeWrapper> {
+  int _currentIndex = 0;
+
+  static const _pages = <Widget>[
+    MechanicHomeScreen(),
+    MechanicEarningsScreen(),
+    MechanicProfileEditScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.darkBg,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+        backgroundColor: const Color(0xFF0F2040),
+        selectedItemColor: AppColors.darkAccent,
+        unselectedItemColor: const Color(0xFF94A3B8),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.payments_rounded),
+            label: 'Earnings',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }

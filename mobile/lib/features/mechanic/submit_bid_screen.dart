@@ -98,9 +98,7 @@ class _SubmitBidScreenState extends State<SubmitBidScreen> {
         ),
       );
 
-      // Pop twice: back to mechanic home (past new_request_detail)
-      context.pop();
-      context.pop();
+      context.go('/mechanic-home');
     } on DioException catch (e) {
       if (!mounted) return;
       final msg = (e.response?.data as Map?)?['message'] as String? ??
