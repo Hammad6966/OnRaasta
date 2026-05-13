@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/onraasta_button.dart';
 
@@ -79,9 +80,91 @@ class _SplashScreenState extends State<SplashScreen>
     ));
   }
 
+  Future<void> _loadSavedIp() async {
+    final savedIp = await _storage.read(key: 'server_ip');
+    if (savedIp != null && savedIp.isNotEmpty) {
+      ApiConstants.serverIp = savedIp;
+    } else {
+      await _showIpDialog();
+    }
+  }
+
+  Future<void> _showIpDialog() async {
+    final controller = TextEditingController(text: ApiConstants.serverIp);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F2040),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Server IP Address',
+          style: GoogleFonts.syne(
+              fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter the IP address of the server on your local network.',
+              style: GoogleFonts.dmSans(
+                  fontSize: 13, color: const Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              style: GoogleFonts.dmSans(fontSize: 14, color: Colors.white),
+              decoration: InputDecoration(
+                hintText: '192.168.x.x',
+                hintStyle: GoogleFonts.dmSans(
+                    fontSize: 14, color: const Color(0xFF94A3B8)),
+                filled: true,
+                fillColor: const Color(0xFF050A14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.darkPrimary),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actionsPadding:
+            const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          OnRaastaButton(
+            label: 'Connect',
+            onPressed: () async {
+              final ip = controller.text.trim();
+              if (ip.isEmpty) return;
+              ApiConstants.serverIp = ip;
+              await _storage.write(key: 'server_ip', value: ip);
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+  }
+
   Future<void> _checkAuthAndAnimate() async {
     // Let widget tree settle before reading storage or navigating
     await Future.delayed(const Duration(milliseconds: 100));
+    if (!mounted) return;
+
+    await _loadSavedIp();
     if (!mounted) return;
 
     final token = await _storage.read(key: 'access_token');

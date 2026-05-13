@@ -81,6 +81,16 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
     super.initState();
     _getLocation();
     _descController.addListener(_onDescChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
+      if (extra != null && extra['prefill'] != null) {
+        _descController.text = extra['prefill'] as String;
+        Future.delayed(
+          const Duration(milliseconds: 500),
+          () => _diagnoseText(),
+        );
+      }
+    });
   }
 
   @override
@@ -128,18 +138,32 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
   }
 
   Future<void> _diagnoseText() async {
+    if (_descController.text.length < 3) return;
     try {
-      final res = await Dio().post(
+      final response = await Dio().post(
         '${ApiConstants.aiUrl}/diagnose/text',
         data: {'text': _descController.text},
-        options: Options(headers: {'Content-Type': 'application/json'}),
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
       );
-      if (!mounted) return;
-      setState(() {
-        _aiDiagnosis =
-            AiDiagnosis.fromJson(res.data as Map<String, dynamic>);
-      });
-    } catch (_) {}
+      if (response.statusCode == 200 && mounted) {
+        final data = response.data as Map<String, dynamic>;
+        setState(() {
+          _aiDiagnosis = AiDiagnosis(
+            faultClass:    data['fault_class']    as String? ?? 'unknown',
+            confidence:    (data['confidence']    as num?)?.toDouble() ?? 0.0,
+            costMin:       (data['cost_range']?['min_pkr'] as num?)?.toInt() ?? 500,
+            costMax:       (data['cost_range']?['max_pkr'] as num?)?.toInt() ?? 5000,
+            skillRequired: data['skill_required'] as String? ?? 'General Mechanic',
+          );
+        });
+      }
+    } catch (e) {
+      print('AI diagnosis error: $e');
+    }
   }
 
   // ── Photos ───────────────────────────────────────────────────────────────────

@@ -479,32 +479,40 @@ class _BottomPanel extends StatelessWidget {
                 const SizedBox(height: 10),
 
                 // Services grid
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _ServiceChip(
                       icon: Icons.settings_rounded,
                       label: 'Engine Fix',
-                      color: Color(0xFFEF4444),
-                      iconBg: Color(0x26EF4444),
+                      color: const Color(0xFFEF4444),
+                      iconBg: const Color(0x26EF4444),
+                      onTap: () => context.push('/report-breakdown',
+                          extra: {'prefill': 'My engine is not working properly'}),
                     ),
                     _ServiceChip(
                       icon: Icons.battery_charging_full_rounded,
                       label: 'Battery Jump',
-                      color: Color(0xFF22C55E),
-                      iconBg: Color(0x2622C55E),
+                      color: const Color(0xFF22C55E),
+                      iconBg: const Color(0x2622C55E),
+                      onTap: () => context.push('/report-breakdown',
+                          extra: {'prefill': 'My car battery is dead and won\'t start'}),
                     ),
                     _ServiceChip(
                       icon: Icons.tire_repair_rounded,
                       label: 'Flat Tire',
-                      color: Color(0xFFF59E0B),
-                      iconBg: Color(0x26F59E0B),
+                      color: const Color(0xFFF59E0B),
+                      iconBg: const Color(0x26F59E0B),
+                      onTap: () => context.push('/report-breakdown',
+                          extra: {'prefill': 'I have a flat tyre and need help'}),
                     ),
                     _ServiceChip(
                       icon: Icons.local_gas_station_rounded,
                       label: 'Fuel Delivery',
-                      color: Color(0xFFF97316),
-                      iconBg: Color(0x26F97316),
+                      color: const Color(0xFFF97316),
+                      iconBg: const Color(0x26F97316),
+                      onTap: () => context.push('/report-breakdown',
+                          extra: {'prefill': 'My car has run out of fuel'}),
                     ),
                   ],
                 ),
@@ -525,17 +533,21 @@ class _ServiceChip extends StatelessWidget {
   final String label;
   final Color color;
   final Color iconBg;
+  final VoidCallback? onTap;
 
   const _ServiceChip({
     required this.icon,
     required this.label,
     required this.color,
     required this.iconBg,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       width: 88,
       height: 88,
       decoration: BoxDecoration(
@@ -567,6 +579,7 @@ class _ServiceChip extends StatelessWidget {
             maxLines: 2,
           ),
         ],
+      ),
       ),
     );
   }

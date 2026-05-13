@@ -1,8 +1,11 @@
 class ApiConstants {
   ApiConstants._();
 
-  static const String baseUrl       = 'http://192.168.18.40:5000/api';
-  static const String socketUrl     = 'http://192.168.18.40:5000';
-  static const String aiUrl         = 'http://localhost:8000';
+  static String serverIp = '192.168.137.59';
+
+  static String get baseUrl   => 'http://$serverIp:5000/api';
+  static String get socketUrl => 'http://$serverIp:5000';
+  static String get aiUrl     => 'http://$serverIp:8000';
+
   static const String googleMapsKey = 'REPLACE_WITH_KEY';
 }
