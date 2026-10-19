@@ -1,7 +1,8 @@
 const express    = require('express');
 const bcrypt     = require('bcryptjs');
-const jwt        = require('jsonwebtoken');
-const mongoose   = require('mongoose');
+const { signAccessToken } = require('../services/access.service');
+const v = require('../middleware/request-validation');
+const { authLimiter } = require('../middleware/rate-limit.middleware');
 
 const User     = require('../models/User');
 const Mechanic = require('../models/Mechanic');
@@ -14,7 +15,7 @@ const router = express.Router();
 const adminOnly = [verifyToken, verifyRole('admin')];
 
 // ── POST /api/admin/login ─────────────────────────────────────────────────────
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, v.adminLogin, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -27,25 +28,34 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
+    if (!user.isActive || !user.isVerified) {
+      return res.status(403).json({ success: false, message: 'Account is inactive or unverified' });
+    }
+    if (user.lockoutUntil && user.lockoutUntil > Date.now()) {
+      return res.status(429).json({ success: false, message: 'Account temporarily locked' });
+    }
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) {
+      user.failedLoginAttempts += 1;
+      if (user.failedLoginAttempts >= 5) user.lockoutUntil = new Date(Date.now() + 30 * 60 * 1000);
+      await user.save();
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role, name: user.name },
-      process.env.JWT_SECRET,
-      { expiresIn: '8h' },
-    );
+    user.failedLoginAttempts = 0;
+    user.lockoutUntil = undefined;
+    await user.save();
+    const token = signAccessToken(user);
 
     res.json({ success: true, token, name: user.name });
   } catch (err) {
-    console.error('[admin/login]', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// ── GET /api/admin/stats ─────────────────────────────────────── (public) ─────
+// ── GET /api/admin/stats ─────────────────────────────────────── (admin only) ─────
+router.use(...adminOnly);
+
 router.get('/stats', async (req, res) => {
   try {
     const todayStart = new Date();
@@ -55,36 +65,39 @@ router.get('/stats', async (req, res) => {
       totalUsers,
       totalMechanics,
       activeJobs,
-      pendingVerifications,
-      revenueAgg,
+      bookedTotals,
       newUsersToday,
+      statusCounts,
     ] = await Promise.all([
       User.countDocuments({ role: 'user' }),
-      Mechanic.countDocuments(),
-      Job.countDocuments({ status: { $in: ['accepted', 'en_route', 'in_progress'] } }),
-      Mechanic.countDocuments({ 'documents.status': 'pending' }),
-      Job.aggregate([
-        { $match: { status: 'completed', finalCost: { $exists: true, $ne: null } } },
-        { $group: { _id: null, total: { $sum: '$finalCost' } } },
-      ]),
+      require('../services/admin.service').applicationCounts(),
+      Job.countDocuments({ status: { $in: ['accepted', 'en_route', 'arrived', 'in_progress'] } }),
+      require('../services/history.service').summary({}),
       User.countDocuments({ role: 'user', createdAt: { $gte: todayStart } }),
+      Promise.all(v.states.map(status => Job.countDocuments({ status }))),
     ]);
 
-    const totalRevenue = revenueAgg[0]?.total ?? 0;
+    // Legacy numeric display adapter; exact accounting remains integer paisa.
+    const totalRevenue = Number(bookedTotals.grossMinor) / 100;
 
     res.json({
       success: true,
       data: {
         totalUsers,
-        totalMechanics,
+        totalMechanics: totalMechanics.eligibleApproved,
+        mechanicApplications: totalMechanics,
+        approvedMechanics: totalMechanics.eligibleApproved,
         activeJobs,
-        pendingVerifications,
+        pendingVerifications: totalMechanics.pending,
         totalRevenue,
+        revenueBasis: 'booked_not_paid',
+        bookedTotals,
+        bookedCommissionMinor: bookedTotals.commissionMinor,
         newUsersToday,
+        jobsByStatus: Object.fromEntries(v.states.map((status, i) => [status, statusCounts[i]])),
       },
     });
   } catch (err) {
-    console.error('[admin/stats]', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -109,7 +122,6 @@ router.get('/jobs-chart', async (req, res) => {
 
     res.json({ success: true, data: results });
   } catch (err) {
-    console.error('[admin/jobs-chart]', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -131,7 +143,6 @@ router.get('/faults-chart', async (req, res) => {
 
     res.json({ success: true, data });
   } catch (err) {
-    console.error('[admin/faults-chart]', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -155,68 +166,22 @@ router.get('/recent-jobs', async (req, res) => {
       user:     j.userId?.name ?? 'Unknown',
       status:   j.status,
       fault:    j.aiDiagnosis?.fault_class?.replace(/_/g, ' ') ?? '—',
-      amount:   j.finalCost ?? null,
+      amount:   require('../services/accounting.service').accounted(j) ? j.accounting.totalMinor / 100 : null,
       createdAt: j.createdAt,
     }));
 
     res.json({ success: true, data });
   } catch (err) {
-    console.error('[admin/recent-jobs]', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// ── GET /api/admin/users ──────────────────────────────────────────────────────
-router.get('/users', ...adminOnly, async (req, res) => {
-  try {
-    const users = await User.find({ role: { $ne: 'admin' } })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
-
-    res.json({ success: true, data: users });
-  } catch (err) {
-    console.error('[admin/users]', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
-
-// ── GET /api/admin/verification ───────────────────────────────────────────────
-router.get('/verification', ...adminOnly, async (req, res) => {
-  try {
-    const mechanics = await Mechanic.find({ 'documents.status': 'pending' })
-      .populate('userId', 'name phone')
-      .sort({ createdAt: -1 })
-      .lean();
-
-    res.json({ success: true, data: mechanics });
-  } catch (err) {
-    console.error('[admin/verification]', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
-
-// ── PATCH /api/admin/verification/:mechanicId ─────────────────────────────────
-router.patch('/verification/:mechanicId', ...adminOnly, async (req, res) => {
-  try {
-    const { status, rejectionReason } = req.body; // 'verified' | 'rejected'
-    const mechanic = await Mechanic.findByIdAndUpdate(
-      req.params.mechanicId,
-      {
-        'documents.status': status,
-        ...(rejectionReason && { 'documents.rejectionReason': rejectionReason }),
-        ...(status === 'verified' && { isApproved: true }),
-      },
-      { new: true },
-    );
-
-    if (!mechanic) return res.status(404).json({ success: false, message: 'Mechanic not found' });
-
-    res.json({ success: true, data: mechanic });
-  } catch (err) {
-    console.error('[admin/verification patch]', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
-
+const management = require('../services/admin.service');
+router.get('/users', management.listUsers);
+router.get('/users/:id', v.id, management.detail);
+router.patch('/users/:id/status', v.id, management.accountStatus);
+router.get('/verification', management.applications);
+// Existing path now decides account approval, never document verification.
+router.patch('/verification/:mechanicId', v.mechanicId, management.decide);
+router.get('/audit-logs', management.logs);
 module.exports = router;

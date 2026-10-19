@@ -16,22 +16,16 @@ import 'features/auth/otp_screen.dart';
 import 'core/theme/app_colors.dart';
 import 'features/user/user_home_screen.dart';
 import 'features/user/report_breakdown_screen.dart';
-import 'features/user/mechanics_found_screen.dart';
+import 'features/user/bidding_routes.dart';
 import 'features/mechanic/mechanic_home_screen.dart' show MechanicHomeWrapper;
-import 'features/mechanic/active_job_screen.dart';
 import 'features/user/user_profile_screen.dart';
-import 'features/mechanic/new_request_detail.dart';
-import 'features/mechanic/submit_bid_screen.dart';
-import 'features/user/mechanic_profile_view.dart';
-import 'features/user/live_tracking_screen.dart';
-import 'features/user/job_in_progress_screen.dart';
-import 'features/user/rate_review_screen.dart';
 import 'features/user/job_history_screen.dart';
 import 'features/mechanic/mechanic_profile_edit.dart';
 import 'features/mechanic/mechanic_earnings_screen.dart';
 import 'features/mechanic/document_upload_screen.dart';
 import 'features/mechanic/mechanic_ratings_screen.dart';
 import 'providers/theme_provider.dart';
+import 'services/auth_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,6 +48,8 @@ Future<void> main() async {
   // Allow runtime font fetching
   GoogleFonts.config.allowRuntimeFetching = true;
 
+  AuthService.instance.bindSocket();
+
   // Hydrate persisted theme before first frame
   const storage = FlutterSecureStorage();
   final themeNotifier = await ThemeNotifier.create(storage);
@@ -73,6 +69,19 @@ Future<void> main() async {
 final _router = GoRouter(
   initialLocation: '/splash',
   debugLogDiagnostics: false,
+  refreshListenable: AuthService.instance,
+  redirect: (context, state) {
+    const publicPaths = [
+      '/splash',
+      '/login',
+      '/signup',
+      '/otp',
+      '/role-selection'
+    ];
+    if (AuthService.instance.status == SessionStatus.signedOut &&
+        !publicPaths.contains(state.uri.path)) return '/login';
+    return null;
+  },
   routes: [
     GoRoute(
       path: '/splash',
@@ -99,7 +108,7 @@ final _router = GoRouter(
         final extra = state.extra as Map<String, dynamic>? ?? {};
         return OtpScreen(
           phone: extra['phone'] as String? ?? '',
-          role:  extra['role']  as String? ?? 'user',
+          role: extra['role'] as String? ?? 'user',
         );
       },
     ),
@@ -113,24 +122,15 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/mechanics-found',
-      builder: (_, state) {
-        final job = state.extra as Map<String, dynamic>? ?? {};
-        return MechanicsFoundScreen(job: job);
-      },
+      builder: (_, state) => mechanicsFoundPage(state.extra),
     ),
     GoRoute(
       path: '/mechanic-profile',
-      builder: (_, state) {
-        final bid = state.extra as Map<String, dynamic>? ?? {};
-        return MechanicProfileView(bid: bid);
-      },
+      builder: (_, state) => mechanicProfilePage(state.extra),
     ),
     GoRoute(
       path: '/live-tracking',
-      builder: (_, state) {
-        final bid = state.extra as Map<String, dynamic>? ?? {};
-        return LiveTrackingScreen(bid: bid);
-      },
+      builder: (_, state) => liveTrackingPage(state.extra),
     ),
     GoRoute(
       path: '/user-profile',
@@ -143,35 +143,29 @@ final _router = GoRouter(
     GoRoute(
       path: '/new-request-detail',
       builder: (_, state) {
-        final job = state.extra as Map<String, dynamic>? ?? {};
-        return NewRequestDetailScreen(job: job);
+        return opportunityPage(state.extra);
       },
     ),
     GoRoute(
       path: '/submit-bid',
       builder: (_, state) {
-        final job = state.extra as Map<String, dynamic>? ?? {};
-        return SubmitBidScreen(job: job);
+        return opportunityPage(state.extra, submit: true);
       },
     ),
     GoRoute(
       path: '/job-in-progress',
-      builder: (context, state) => JobInProgressScreen(
-        bid: state.extra as Map<String, dynamic>,
-      ),
+      builder: (context, state) => jobInProgressPage(state.extra),
     ),
     GoRoute(
       path: '/active-job',
       builder: (_, state) {
-        final job = state.extra as Map<String, dynamic>? ?? {};
-        return ActiveJobScreen(job: job);
+        return activeJobPage(state.extra);
       },
     ),
     GoRoute(
       path: '/rate-review',
       builder: (_, state) {
-        final bid = state.extra as Map<String, dynamic>? ?? {};
-        return RateReviewScreen(bid: bid);
+        return rateReviewPage(state.extra);
       },
     ),
     GoRoute(
@@ -181,6 +175,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/mechanic-profile-edit',
       builder: (_, __) => const MechanicProfileEditScreen(),
+    ),
+    GoRoute(
+      path: '/mechanic-history',
+      builder: (_, __) => const JobHistoryScreen(mechanic: true),
     ),
     GoRoute(
       path: '/mechanic-earnings',

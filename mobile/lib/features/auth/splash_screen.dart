@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/api_constants.dart';
+import '../../services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/onraasta_button.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  final AuthService? auth;
+  const SplashScreen({super.key, this.auth});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -16,6 +18,9 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
+  bool _checking = true;
+  String? _recoveryError;
+  AuthService get _auth => widget.auth ?? AuthService.instance;
   final _storage = const FlutterSecureStorage();
 
   // One controller per animation layer
@@ -34,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
     _buildAnimations();
-    _checkAuthAndAnimate();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAuthAndAnimate());
   }
 
   void _buildAnimations() {
@@ -81,8 +86,9 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _loadSavedIp() async {
+    if (ApiConstants.hasConfiguredServer) return;
     final savedIp = await _storage.read(key: 'server_ip');
-    if (savedIp != null && savedIp.isNotEmpty) {
+    if (savedIp != null && ApiConstants.validServerHost(savedIp)) {
       ApiConstants.serverIp = savedIp;
     } else {
       await _showIpDialog();
@@ -140,14 +146,13 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ],
         ),
-        actionsPadding:
-            const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
           OnRaastaButton(
             label: 'Connect',
             onPressed: () async {
               final ip = controller.text.trim();
-              if (ip.isEmpty) return;
+              if (!ApiConstants.validServerHost(ip)) return;
               ApiConstants.serverIp = ip;
               await _storage.write(key: 'server_ip', value: ip);
               if (ctx.mounted) Navigator.of(ctx).pop();
@@ -160,39 +165,29 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkAuthAndAnimate() async {
-    // Let widget tree settle before reading storage or navigating
-    await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
-
+    setState(() {
+      _checking = true;
+      _recoveryError = null;
+    });
+    _logoController.forward();
+    _textController.forward();
+    _taglineController.forward();
     await _loadSavedIp();
     if (!mounted) return;
-
-    final token = await _storage.read(key: 'access_token');
-    final role  = await _storage.read(key: 'user_role');
-
-    if (token != null && token.isNotEmpty) {
-      if (!mounted) return;
-      if (role == 'mechanic') {
-        context.go('/mechanic-home');
-      } else {
-        context.go('/user-home');
-      }
+    final state = await _auth.recover();
+    if (!mounted) return;
+    if (state == SessionStatus.authenticated) {
+      context.go(_auth.role == 'mechanic' ? '/mechanic-home' : '/user-home');
       return;
     }
-
-    // No valid token → run staggered entrance animations
-    _logoController.forward();
-
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
-    _textController.forward();
-
-    await Future.delayed(const Duration(milliseconds: 200));
-    if (!mounted) return;
-    _taglineController.forward();
-
-    await Future.delayed(const Duration(milliseconds: 200));
-    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      if (state == SessionStatus.offline) {
+        _recoveryError =
+            'Unable to validate your saved session. Check your connection and retry.';
+      }
+    });
     _buttonsController.forward();
   }
 
@@ -337,26 +332,43 @@ class _SplashScreenState extends State<SplashScreen>
                   const SizedBox(height: 48),
 
                   // Buttons — slideUp + fadeIn after 800ms
-                  SlideTransition(
-                    position: _buttonsSlide,
-                    child: FadeTransition(
-                      opacity: _buttonsOpacity,
-                      child: Column(
-                        children: [
-                          OnRaastaButton(
-                            label: 'Get Started →',
-                            onPressed: () => context.push('/role-selection'),
-                          ),
-                          const SizedBox(height: 12),
-                          OnRaastaButton(
-                            label: 'I already have an account',
-                            isPrimary: false,
-                            onPressed: () => context.push('/login'),
-                          ),
-                        ],
+                  if (_checking) const CircularProgressIndicator(),
+                  if (_recoveryError != null) ...[
+                    Text(_recoveryError!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            color: AppColors.darkTextSecondary)),
+                    TextButton(
+                        onPressed: _checkAuthAndAnimate,
+                        child: const Text('Retry session recovery')),
+                    TextButton(
+                        onPressed: () async {
+                          await _auth.clearTokens();
+                          if (context.mounted) context.go('/login');
+                        },
+                        child: const Text('Sign in instead')),
+                  ],
+                  if (!_checking && _recoveryError == null)
+                    SlideTransition(
+                      position: _buttonsSlide,
+                      child: FadeTransition(
+                        opacity: _buttonsOpacity,
+                        child: Column(
+                          children: [
+                            OnRaastaButton(
+                              label: 'Get Started →',
+                              onPressed: () => context.push('/role-selection'),
+                            ),
+                            const SizedBox(height: 12),
+                            OnRaastaButton(
+                              label: 'I already have an account',
+                              isPrimary: false,
+                              onPressed: () => context.push('/login'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

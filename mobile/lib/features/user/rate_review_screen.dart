@@ -1,18 +1,18 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/constants/api_constants.dart';
+import '../../providers/review_form_controller.dart';
+import '../../services/review_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/onraasta_button.dart';
 
 class RateReviewScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> bid;
+  final ReviewFormController? controller;
 
-  const RateReviewScreen({super.key, required this.bid});
+  const RateReviewScreen({super.key, required this.bid, this.controller});
 
   @override
   ConsumerState<RateReviewScreen> createState() => _RateReviewScreenState();
@@ -23,26 +23,26 @@ class _RateReviewScreenState extends ConsumerState<RateReviewScreen>
   int _selectedStars = 0;
   final List<String> _selectedTags = [];
   final TextEditingController _commentController = TextEditingController();
-  bool _isLoading = false;
+  late final ReviewFormController _review;
+  bool get _isLoading => _review.submitting;
 
   int _animatingStar = -1;
   late AnimationController _starAnimController;
   late Animation<double> _starScaleAnim;
 
-  static const _tags = [
-    'Professional',
-    'On Time',
-    'Fair Price',
-    'Quality Work',
-    'Friendly',
-    'Clean Work',
-    'Skilled',
-    'Fast Service',
-  ];
+  static const _tags = ReviewService.tags;
 
   @override
   void initState() {
     super.initState();
+    _review = widget.controller ??
+        ReviewFormController(
+            jobId: widget.bid['jobId'] as String? ?? '',
+            mechanicId: widget.bid['mechanicId'] as String? ?? '',
+            bidId: widget.bid['bidId'] as String? ?? '',
+            service: ReviewService.instance);
+    _review.addListener(_changed);
+    _review.reload();
     _commentController.addListener(() => setState(() {}));
 
     _starAnimController = AnimationController(
@@ -58,8 +58,14 @@ class _RateReviewScreenState extends ConsumerState<RateReviewScreen>
     ));
   }
 
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _review.removeListener(_changed);
+    _review.dispose();
     _commentController.dispose();
     _starAnimController.dispose();
     super.dispose();
@@ -88,36 +94,15 @@ class _RateReviewScreenState extends ConsumerState<RateReviewScreen>
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'token');
-
-      final jobId = widget.bid['jobId'] ?? widget.bid['_id'] ?? '';
-
-      final dio = Dio();
-      await dio.post(
-        '${ApiConstants.baseUrl}/jobs/$jobId/review',
-        data: {
-          'stars': _selectedStars,
-          'tags': _selectedTags,
-          'comment': _commentController.text.trim(),
-        },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      _showSnack('Thank you for your review! ⭐');
-      await Future.delayed(const Duration(seconds: 1));
-      if (mounted) context.go('/user-home');
-    } on DioException catch (e) {
-      final msg = (e.response?.data as Map?)?['message'] as String? ??
-          'Something went wrong';
-      _showSnack(msg);
-    } catch (_) {
-      _showSnack('Something went wrong');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    if (!_review.canSubmit) return;
+    final success = await _review.submit(
+        _selectedStars, List.of(_selectedTags), _commentController.text);
+    if (!mounted) return;
+    if (success) {
+      _showSnack('Thank you for your review!');
+      context.go('/user-home');
+    } else if (_review.error != null) {
+      _showSnack(_review.error!);
     }
   }
 
@@ -141,8 +126,7 @@ class _RateReviewScreenState extends ConsumerState<RateReviewScreen>
 
   @override
   Widget build(BuildContext context) {
-    final mechanicName =
-        widget.bid['mechanicName'] as String? ?? 'Mechanic';
+    final mechanicName = _review.booking?.bid.mechanicName ?? 'Mechanic';
     final initials = mechanicName
         .split(' ')
         .where((w) => w.isNotEmpty)
@@ -163,6 +147,17 @@ class _RateReviewScreenState extends ConsumerState<RateReviewScreen>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 16),
+                    if (_review.loading) const LinearProgressIndicator(),
+                    if (_review.alreadyReviewed)
+                      const Text('Review submitted',
+                          style: TextStyle(color: AppColors.darkSuccess)),
+                    if (_review.error != null)
+                      Text(_review.error!,
+                          style: const TextStyle(color: AppColors.darkError)),
+                    if (!_review.verified && !_review.loading)
+                      TextButton(
+                          onPressed: _review.reload,
+                          child: const Text('Retry verification')),
                     _MechanicCard(initials: initials, name: mechanicName),
                     _StarRow(
                       selectedStars: _selectedStars,
@@ -180,7 +175,7 @@ class _RateReviewScreenState extends ConsumerState<RateReviewScreen>
                       ),
                     ),
                     const SizedBox(height: 24),
-                    _SectionLabel('WHAT WENT WELL?'),
+                    const _SectionLabel('WHAT WENT WELL?'),
                     const SizedBox(height: 12),
                     _TagWrap(
                       tags: _tags,
@@ -196,7 +191,7 @@ class _RateReviewScreenState extends ConsumerState<RateReviewScreen>
                       },
                     ),
                     const SizedBox(height: 24),
-                    _SectionLabel('ADDITIONAL COMMENTS (OPTIONAL)'),
+                    const _SectionLabel('ADDITIONAL COMMENTS (OPTIONAL)'),
                     const SizedBox(height: 8),
                     _CommentField(controller: _commentController),
                     const SizedBox(height: 4),
@@ -214,7 +209,7 @@ class _RateReviewScreenState extends ConsumerState<RateReviewScreen>
                     OnRaastaButton(
                       label: _isLoading ? 'Submitting...' : 'Submit Review',
                       isLoading: _isLoading,
-                      isDisabled: _selectedStars == 0,
+                      isDisabled: _selectedStars == 0 || !_review.canSubmit,
                       onPressed: _submitReview,
                     ),
                     const SizedBox(height: 12),
@@ -361,8 +356,7 @@ class _StarRow extends StatelessWidget {
           onTap: () => onTap(i),
           child: Icon(
             filled ? Icons.star_rounded : Icons.star_border_rounded,
-            color:
-                filled ? AppColors.darkAccent : const Color(0xFF1E3A5F),
+            color: filled ? AppColors.darkAccent : const Color(0xFF1E3A5F),
             size: 48,
           ),
         );
@@ -405,26 +399,20 @@ class _TagWrap extends StatelessWidget {
         return GestureDetector(
           onTap: () => onToggle(tag),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: selected
-                  ? const Color(0x262563EB)
-                  : AppColors.darkSurface,
+              color: selected ? const Color(0x262563EB) : AppColors.darkSurface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: selected
-                    ? AppColors.darkPrimary
-                    : AppColors.darkBorder,
+                color: selected ? AppColors.darkPrimary : AppColors.darkBorder,
               ),
             ),
             child: Text(
               tag,
               style: GoogleFonts.dmSans(
                 fontSize: 13,
-                color: selected
-                    ? AppColors.darkPrimary
-                    : const Color(0xFF94A3B8),
+                color:
+                    selected ? AppColors.darkPrimary : const Color(0xFF94A3B8),
               ),
             ),
           ),

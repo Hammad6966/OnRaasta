@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema(
       trim:      true,
       lowercase: true,
       sparse:    true,
+      unique:    true,
       default:   undefined,
     },
     phone: {
@@ -45,4 +46,5 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+userSchema.index({ role: 1, createdAt: -1, _id: -1 });
 module.exports = mongoose.model('User', userSchema);

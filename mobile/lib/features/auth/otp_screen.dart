@@ -1,9 +1,9 @@
+import '../../services/auth_service.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -22,15 +22,12 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  final _storage = const FlutterSecureStorage();
-
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes =
-      List.generate(6, (_) => FocusNode());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
-  bool _isLoading     = false;
-  int  _resendSeconds = 60;
+  bool _isLoading = false;
+  int _resendSeconds = 60;
   Timer? _timer;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
@@ -44,8 +41,12 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    for (final c in _controllers) c.dispose();
-    for (final f in _focusNodes)   f.dispose();
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -78,34 +79,30 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Future<void> _handleVerify() async {
     final otp = _controllers.map((c) => c.text).join();
-    if (otp.length < 6) return;
+    if (_isLoading || otp.length < 6) return;
 
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService.instance.dio.post(
-        '/auth/verify-otp',
-        data: {'phone': widget.phone, 'otp': otp},
-      );
-      final data = response.data as Map<String, dynamic>;
-
-      await Future.wait([
-        _storage.write(key: 'access_token',  value: data['accessToken']        as String),
-        _storage.write(key: 'refresh_token', value: data['refreshToken']       as String),
-        _storage.write(key: 'user_role',     value: data['user']['role']       as String),
-        _storage.write(key: 'user_id',       value: data['user']['id'].toString()),
-      ]);
-
+      final user = await AuthService.instance.authenticate(
+          '/auth/verify-otp', {'phone': widget.phone, 'otp': otp});
       if (!mounted) return;
-      final role = data['user']['role'] as String;
+      final role = user['role'] as String;
       context.go(role == 'mechanic' ? '/mechanic-home' : '/user-home');
     } on DioException catch (e) {
       if (!mounted) return;
       final message = e.response?.data?['message'] as String? ??
           'Invalid OTP. Please try again.';
       _showSnackBar(message, isError: true);
-      for (final c in _controllers) c.clear();
+      for (final c in _controllers) {
+        c.clear();
+      }
       _focusNodes[0].requestFocus();
       setState(() {});
+    } on SessionFailure catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -115,14 +112,15 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Future<void> _resendOtp() async {
     try {
-      await ApiService.instance.dio.post('/auth/resend-otp', data: {'phone': widget.phone});
+      await ApiService.instance.dio
+          .post('/auth/resend-otp', data: {'phone': widget.phone});
       _startTimer();
       if (!mounted) return;
       _showSnackBar('OTP resent successfully', isError: false);
     } on DioException catch (e) {
       if (!mounted) return;
-      final message = e.response?.data?['message'] as String? ??
-          'Failed to resend OTP.';
+      final message =
+          e.response?.data?['message'] as String? ?? 'Failed to resend OTP.';
       _showSnackBar(message, isError: true);
     }
   }
@@ -163,23 +161,23 @@ class _OtpScreenState extends State<OtpScreen> {
           ),
         ),
         child: TextFormField(
-          controller:       _controllers[index],
-          focusNode:        _focusNodes[index],
-          textAlign:        TextAlign.center,
-          keyboardType:     TextInputType.number,
-          maxLength:        1,
-          inputFormatters:  [FilteringTextInputFormatter.digitsOnly],
+          controller: _controllers[index],
+          focusNode: _focusNodes[index],
+          textAlign: TextAlign.center,
+          keyboardType: TextInputType.number,
+          maxLength: 1,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           style: GoogleFonts.dmSans(
-            fontSize:   24,
+            fontSize: 24,
             fontWeight: FontWeight.w700,
-            color:      Colors.white,
+            color: Colors.white,
           ),
           decoration: const InputDecoration(
-            counterText:    '',
-            border:         InputBorder.none,
-            enabledBorder:  InputBorder.none,
-            focusedBorder:  InputBorder.none,
-            filled:         false,
+            counterText: '',
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            filled: false,
             contentPadding: EdgeInsets.zero,
           ),
           onChanged: (v) => _onOtpChanged(v, index),
@@ -213,7 +211,8 @@ class _OtpScreenState extends State<OtpScreen> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.darkBorder),
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                  child: const Icon(Icons.arrow_back,
+                      color: Colors.white, size: 20),
                 ),
               ),
 
@@ -222,9 +221,9 @@ class _OtpScreenState extends State<OtpScreen> {
               Text(
                 'Verify your number',
                 style: GoogleFonts.syne(
-                  fontSize:   26,
+                  fontSize: 26,
                   fontWeight: FontWeight.w700,
-                  color:      AppColors.darkTextPrimary,
+                  color: AppColors.darkTextPrimary,
                 ),
               ),
 
@@ -234,14 +233,14 @@ class _OtpScreenState extends State<OtpScreen> {
                 'Enter the 6-digit code sent to',
                 style: GoogleFonts.dmSans(
                   fontSize: 14,
-                  color:    AppColors.darkTextSecondary,
+                  color: AppColors.darkTextSecondary,
                 ),
               ),
               Text(
                 _maskedPhone,
                 style: GoogleFonts.dmSans(
                   fontSize: 14,
-                  color:    AppColors.darkTextPrimary,
+                  color: AppColors.darkTextPrimary,
                 ),
               ),
 
@@ -250,16 +249,18 @@ class _OtpScreenState extends State<OtpScreen> {
               // OTP boxes
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(6, (i) => Padding(
-                  padding: EdgeInsets.only(right: i < 5 ? 8.0 : 0.0),
-                  child: _buildOtpBox(i),
-                )),
+                children: List.generate(
+                    6,
+                    (i) => Padding(
+                          padding: EdgeInsets.only(right: i < 5 ? 8.0 : 0.0),
+                          child: _buildOtpBox(i),
+                        )),
               ),
 
               const SizedBox(height: 40),
 
               OnRaastaButton(
-                label:     'Verify OTP →',
+                label: 'Verify OTP →',
                 isLoading: _isLoading,
                 onPressed: _handleVerify,
               ),
@@ -274,7 +275,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     "Didn't receive code? ",
                     style: GoogleFonts.dmSans(
                       fontSize: 14,
-                      color:    AppColors.darkTextSecondary,
+                      color: AppColors.darkTextSecondary,
                     ),
                   ),
                   if (_resendSeconds > 0)
@@ -282,7 +283,7 @@ class _OtpScreenState extends State<OtpScreen> {
                       'Resend in ${_resendSeconds}s',
                       style: GoogleFonts.dmSans(
                         fontSize: 14,
-                        color:    AppColors.darkTextSecondary,
+                        color: AppColors.darkTextSecondary,
                       ),
                     )
                   else
@@ -291,8 +292,8 @@ class _OtpScreenState extends State<OtpScreen> {
                       child: Text(
                         'Resend OTP',
                         style: GoogleFonts.dmSans(
-                          fontSize:   14,
-                          color:      AppColors.darkAccent,
+                          fontSize: 14,
+                          color: AppColors.darkAccent,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

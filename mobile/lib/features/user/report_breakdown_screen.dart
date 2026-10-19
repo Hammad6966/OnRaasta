@@ -1,3 +1,4 @@
+import '../../services/auth_service.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -6,8 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:image_picker/image_picker.dart';
+import '../../services/profile_service.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_colors.dart';
@@ -42,10 +42,10 @@ class AiDiagnosis {
       );
 
   Map<String, dynamic> toJson() => {
-        'fault_class':    faultClass,
-        'confidence':     confidence,
-        'cost_min':       costMin,
-        'cost_max':       costMax,
+        'fault_class': faultClass,
+        'confidence': confidence,
+        'cost_min': costMin,
+        'cost_max': costMax,
         'skill_required': skillRequired,
       };
 }
@@ -61,7 +61,8 @@ class ReportBreakdownScreen extends StatefulWidget {
 
 class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
   final _descController = TextEditingController();
-  final _imagePicker = ImagePicker();
+  Map<String, dynamic>? _vehicle;
+  bool _loadingVehicles = false;
 
   GoogleMapController? _mapController;
   Position? _userPosition;
@@ -118,8 +119,7 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
       if (!mounted) return;
       setState(() => _userPosition = pos);
       _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(
-            LatLng(pos.latitude, pos.longitude), 15),
+        CameraUpdate.newLatLngZoom(LatLng(pos.latitude, pos.longitude), 15),
       );
     } catch (_) {}
   }
@@ -130,8 +130,7 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
     _debounce?.cancel();
     final text = _descController.text;
     if (text.length > 3) {
-      _debounce =
-          Timer(const Duration(milliseconds: 800), _diagnoseText);
+      _debounce = Timer(const Duration(milliseconds: 800), _diagnoseText);
     } else if (_aiDiagnosis != null) {
       setState(() => _aiDiagnosis = null);
     }
@@ -153,11 +152,12 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
         final data = response.data as Map<String, dynamic>;
         setState(() {
           _aiDiagnosis = AiDiagnosis(
-            faultClass:    data['fault_class']    as String? ?? 'unknown',
-            confidence:    (data['confidence']    as num?)?.toDouble() ?? 0.0,
-            costMin:       (data['cost_range']?['min_pkr'] as num?)?.toInt() ?? 500,
-            costMax:       (data['cost_range']?['max_pkr'] as num?)?.toInt() ?? 5000,
-            skillRequired: data['skill_required'] as String? ?? 'General Mechanic',
+            faultClass: data['fault_class'] as String? ?? 'unknown',
+            confidence: (data['confidence'] as num?)?.toDouble() ?? 0.0,
+            costMin: (data['cost_range']?['min_pkr'] as num?)?.toInt() ?? 500,
+            costMax: (data['cost_range']?['max_pkr'] as num?)?.toInt() ?? 5000,
+            skillRequired:
+                data['skill_required'] as String? ?? 'General Mechanic',
           );
         });
       }
@@ -169,12 +169,41 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
   // ── Photos ───────────────────────────────────────────────────────────────────
 
   Future<void> _pickPhoto(int index) async {
-    final result = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 70,
-    );
-    if (result != null) {
-      setState(() => _photos[index] = File(result.path));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:
+            Text('Photo uploads are deferred. No photo will be uploaded.')));
+  }
+
+  Future<void> _chooseVehicle() async {
+    if (_loadingVehicles || _isSubmitting) return;
+    final epoch = AuthService.instance.epoch;
+    setState(() => _loadingVehicles = true);
+    try {
+      final vehicles = await ProfileService.instance.vehicles();
+      if (!mounted || epoch != AuthService.instance.epoch) return;
+      final selected = await showModalBottomSheet<Map<String, dynamic>>(
+          context: context,
+          builder: (c) => SafeArea(
+                  child: SingleChildScrollView(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const ListTile(title: Text('Choose saved vehicle')),
+                if (vehicles.isEmpty)
+                  const ListTile(
+                      title: Text('No saved vehicles. Add one in Profile.')),
+                for (final v in vehicles)
+                  ListTile(
+                      title: Text('${v['make'] ?? ''} ${v['model'] ?? ''}'),
+                      subtitle: Text(
+                          '${v['plate']}${v['isPrimary'] == true ? ' ? Primary' : ''}'),
+                      onTap: () => Navigator.pop(c, v)),
+              ]))));
+      if (mounted && epoch == AuthService.instance.epoch && selected != null)
+        setState(() => _vehicle = selected);
+    } catch (e) {
+      if (mounted && epoch == AuthService.instance.epoch)
+        _showSubmissionError(profileError(e));
+    } finally {
+      if (mounted) setState(() => _loadingVehicles = false);
     }
   }
 
@@ -185,6 +214,8 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
   // ── Submit ───────────────────────────────────────────────────────────────────
 
   Future<void> _handleFindMechanics() async {
+    if (_isSubmitting) return;
+
     if (_descController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -195,52 +226,86 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
       return;
     }
 
-    final storage = const FlutterSecureStorage();
-    final token = await storage.read(key: 'access_token');
-    print('DEBUG TOKEN: $token');
-
-    if (token == null || token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Session expired. Please login again.')),
-      );
-      context.go('/login');
-      return;
-    }
-
     setState(() => _isSubmitting = true);
     try {
-      final dio = Dio(BaseOptions(
-        baseUrl:        ApiConstants.baseUrl,
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
-      ));
+      final token = await AuthService.instance.getAccessToken();
+      if (!mounted) return;
 
-      final response = await dio.post('/jobs', data: {
+      if (token == null || token.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expired. Please login again.')),
+        );
+        context.go('/login');
+        return;
+      }
+
+      final position = _userPosition;
+      if (position == null ||
+          !position.latitude.isFinite ||
+          !position.longitude.isFinite ||
+          position.latitude.abs() > 90 ||
+          position.longitude.abs() > 180 ||
+          position.latitude == 0 && position.longitude == 0) {
+        _showSubmissionError(
+            'A current GPS location is required. Enable location services and permission, then retry GPS location.');
+        return;
+      }
+      final response = await ApiService.instance.dio.post('/jobs', data: {
         'description': _descController.text,
         'location': {
-          'lat':     _userPosition?.latitude  ?? 33.6844,
-          'lng':     _userPosition?.longitude ?? 73.0479,
+          'lat': position.latitude,
+          'lng': position.longitude,
           'address': 'Current Location',
         },
         'aiDiagnosis': _aiDiagnosis?.toJson(),
+        if (_vehicle != null) 'vehicleId': _vehicle!['_id'],
       });
 
       if (!mounted) return;
-      context.push('/mechanics-found', extra: response.data['job']);
+      final body = response.data;
+      final status = response.statusCode ?? 0;
+      if (status < 200 ||
+          status >= 300 ||
+          body is! Map ||
+          body['success'] != true) {
+        _showSubmissionError(_submissionErrorMessage(body));
+        return;
+      }
+
+      final savedJob = body['data'];
+      final jobId = savedJob is Map ? savedJob['_id'] : null;
+      if (savedJob is! Map<String, dynamic> ||
+          jobId is! String ||
+          jobId.trim().isEmpty) {
+        _showSubmissionError(
+          'The server returned an invalid job. Unable to find mechanics.',
+        );
+        return;
+      }
+
+      context.push('/mechanics-found', extra: savedJob);
     } on DioException catch (e) {
       if (!mounted) return;
-      final msg = e.response?.data?['message'] as String? ??
-          'Failed to create job. Please try again.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.darkError),
-      );
+      _showSubmissionError(_submissionErrorMessage(e.response?.data));
+    } catch (_) {
+      if (!mounted) return;
+      _showSubmissionError('Failed to create job. Please try again.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  String _submissionErrorMessage(dynamic body) {
+    final message = body is Map ? body['message'] : null;
+    return message is String && message.trim().isNotEmpty
+        ? message
+        : 'Failed to create job. Please try again.';
+  }
+
+  void _showSubmissionError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppColors.darkError),
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────────
@@ -274,16 +339,15 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
                         position: mapCenter,
                         icon: BitmapDescriptor.defaultMarkerWithHue(
                             BitmapDescriptor.hueAzure),
-                        infoWindow:
-                            const InfoWindow(title: 'You are here'),
+                        infoWindow: const InfoWindow(title: 'You are here'),
                       ),
                     }
                   : {},
               onMapCreated: (controller) {
                 _mapController = controller;
                 if (_userPosition != null) {
-                  controller.animateCamera(
-                      CameraUpdate.newLatLngZoom(mapCenter, 15));
+                  controller
+                      .animateCamera(CameraUpdate.newLatLngZoom(mapCenter, 15));
                 }
               },
             ),
@@ -308,8 +372,7 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
                           height: 40,
                           decoration: BoxDecoration(
                             color: AppColors.darkSurface,
-                            border:
-                                Border.all(color: AppColors.darkBorder),
+                            border: Border.all(color: AppColors.darkBorder),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(Icons.arrow_back,
@@ -345,6 +408,26 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
 
                   const SizedBox(height: 8),
 
+                  TextButton.icon(
+                      onPressed: _loadingVehicles || _isSubmitting
+                          ? null
+                          : _chooseVehicle,
+                      icon: const Icon(Icons.directions_car),
+                      label: Text(_loadingVehicles
+                          ? 'Loading vehicles...'
+                          : _vehicle == null
+                              ? 'Choose saved vehicle (optional)'
+                              : 'Vehicle: ${_vehicle!['plate']}')),
+                  if (_vehicle != null)
+                    TextButton(
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => setState(() => _vehicle = null),
+                        child: const Text('Clear vehicle selection')),
+                  if (_userPosition == null)
+                    TextButton(
+                        onPressed: _isSubmitting ? null : _getLocation,
+                        child: const Text('Retry GPS location')),
                   // Description input + mic
                   Container(
                     decoration: BoxDecoration(
@@ -394,13 +477,14 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
                   const SizedBox(height: 8),
 
                   // AI diagnosis chip
-                  if (_aiDiagnosis != null) _AiDiagnosisChip(diagnosis: _aiDiagnosis!),
+                  if (_aiDiagnosis != null)
+                    _AiDiagnosisChip(diagnosis: _aiDiagnosis!),
 
                   const SizedBox(height: 16),
 
                   // Photos label
                   const Text(
-                    'UPLOAD PHOTOS (MAX 3)',
+                    'PHOTO UPLOADS ? DEFERRED',
                     style: TextStyle(
                       color: AppColors.darkTextSecondary,
                       fontFamily: 'DM Sans',
@@ -418,8 +502,8 @@ class _ReportBreakdownScreenState extends State<ReportBreakdownScreen> {
                       final photo = _photos[index];
                       return Expanded(
                         child: Padding(
-                          padding: EdgeInsets.only(
-                              right: index < 2 ? 8.0 : 0.0),
+                          padding:
+                              EdgeInsets.only(right: index < 2 ? 8.0 : 0.0),
                           child: SizedBox(
                             height: 80,
                             child: photo != null
@@ -464,9 +548,7 @@ class _AiDiagnosisChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = diagnosis.faultClass
-        .replaceAll('_', ' ')
-        .toUpperCase();
+    final label = diagnosis.faultClass.replaceAll('_', ' ').toUpperCase();
 
     return Container(
       decoration: BoxDecoration(
@@ -572,8 +654,7 @@ class _FilledPhotoSlot extends StatelessWidget {
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Icon(Icons.close,
-                    color: Colors.white, size: 14),
+                child: const Icon(Icons.close, color: Colors.white, size: 14),
               ),
             ),
           ),
@@ -594,8 +675,8 @@ class _EmptyPhotoSlot extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.darkSurface,
-          border: Border.all(
-              color: AppColors.darkBorder, style: BorderStyle.solid),
+          border:
+              Border.all(color: AppColors.darkBorder, style: BorderStyle.solid),
           borderRadius: BorderRadius.circular(14),
         ),
         child: const Column(

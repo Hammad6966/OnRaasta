@@ -21,14 +21,14 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _nameController     = TextEditingController();
-  final _phoneController    = TextEditingController();
-  final _emailController    = TextEditingController();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
-  bool _isLoading       = false;
-  int  _passwordLength  = 0;
+  bool _isLoading = false;
+  int _passwordLength = 0;
 
   @override
   void dispose() {
@@ -43,10 +43,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
   int get _strengthLevel {
     final len = _passwordLength;
-    if (len == 0)  return 0;
-    if (len <= 3)  return 1;
-    if (len <= 6)  return 2;
-    if (len <= 7)  return 3;
+    if (len == 0) return 0;
+    if (len <= 3) return 1;
+    if (len <= 6) return 2;
+    if (len <= 7) return 3;
     return 4;
   }
 
@@ -71,10 +71,12 @@ class _SignupScreenState extends State<SignupScreen> {
       await ApiService.instance.dio.post(
         '/auth/register',
         data: {
-          'name':     _nameController.text.trim(),
-          'phone':    _phoneController.text.trim(),
+          'name': _nameController.text.trim(),
+          if (_emailController.text.trim().isNotEmpty)
+            'email': _emailController.text.trim(),
+          'phone': _phoneController.text.trim(),
           'password': _passwordController.text,
-          'role':     widget.role,
+          'role': widget.role,
         },
       );
 
@@ -83,7 +85,7 @@ class _SignupScreenState extends State<SignupScreen> {
         '/otp',
         extra: {
           'phone': _phoneController.text.trim(),
-          'role':  widget.role,
+          'role': widget.role,
         },
       );
     } on DioException catch (e) {
@@ -129,7 +131,8 @@ class _SignupScreenState extends State<SignupScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.darkBorder),
                     ),
-                    child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                    child: const Icon(Icons.arrow_back,
+                        color: Colors.white, size: 20),
                   ),
                 ),
 
@@ -168,8 +171,10 @@ class _SignupScreenState extends State<SignupScreen> {
                     size: 20,
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Name is required';
-                    if (v.trim().length < 2) return 'Name must be at least 2 characters';
+                    if (v == null || v.trim().isEmpty)
+                      return 'Name is required';
+                    if (v.trim().length < 2)
+                      return 'Name must be at least 2 characters';
                     return null;
                   },
                 ),
@@ -211,9 +216,12 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   obscureText: _obscurePassword,
                   suffixIcon: GestureDetector(
-                    onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onTap: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                     child: Icon(
-                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
                       color: AppColors.darkTextSecondary,
                       size: 20,
                     ),
@@ -221,7 +229,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   onChanged: (v) => setState(() => _passwordLength = v.length),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Password is required';
-                    if (v.length < 8) return 'Password must be at least 8 characters';
+                    if (v.length < 8)
+                      return 'Password must be at least 8 characters';
                     return null;
                   },
                 ),

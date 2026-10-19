@@ -2,12 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
-import 'mechanic_home_screen.dart';
+import '../../models/bid_model.dart';
+import '../../providers/opportunity_controller.dart';
+import '../../services/assignment_service.dart';
+import '../../services/socket_service.dart';
+import '../../core/widgets/opportunity_banner.dart';
+import '../../models/job_request.dart';
 
-class NewRequestDetailScreen extends StatelessWidget {
+class NewRequestDetailScreen extends StatefulWidget {
   final Map<String, dynamic> job;
 
   const NewRequestDetailScreen({super.key, required this.job});
+
+  @override
+  State<NewRequestDetailScreen> createState() => _NewRequestDetailScreenState();
+}
+
+class _NewRequestDetailScreenState extends State<NewRequestDetailScreen> {
+  Map<String, dynamic> get job => widget.job;
+  late final OpportunityController _opportunity;
+  @override
+  void initState() {
+    super.initState();
+    _opportunity = OpportunityController(
+        jobId: objectId(job['_id'] ?? job['jobId']) ?? '',
+        socket: SocketService(),
+        load: AssignmentService.instance.isOpen);
+    _opportunity.addListener(_changed);
+    _opportunity.refresh();
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _opportunity.removeListener(_changed);
+    _opportunity.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +53,7 @@ class NewRequestDetailScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
+            OpportunityBanner(controller: _opportunity),
             // ── Top bar ──────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -110,7 +145,7 @@ class NewRequestDetailScreen extends StatelessWidget {
                                   color: AppColors.darkTextSecondary, size: 14),
                               const SizedBox(width: 4),
                               Text(
-                                '${request.distance.toStringAsFixed(1)} km away',
+                                request.distanceLabel,
                                 style: const TextStyle(
                                   color: AppColors.darkTextSecondary,
                                   fontFamily: 'DM Sans',
@@ -186,7 +221,9 @@ class NewRequestDetailScreen extends StatelessWidget {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: () => context.push('/submit-bid', extra: job),
+                      onPressed: _opportunity.canBid
+                          ? () => context.push('/submit-bid', extra: job)
+                          : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.darkPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -235,7 +272,7 @@ class _InfoRow extends StatelessWidget {
       children: [
         _InfoChip(
           icon: Icons.near_me_rounded,
-          value: '${request.distance.toStringAsFixed(1)} km',
+          value: request.distanceLabel,
           label: 'Distance',
         ),
         const SizedBox(width: 10),

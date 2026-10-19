@@ -44,6 +44,10 @@ class TextDiagnoseResponse(BaseModel):
 
 def _match_fault(text: str) -> str | None:
     lowered = text.lower()
+    # A named fluid is more specific than generic "leak"/"cool" keywords.
+    # Preserve the keyword engine; do not report an oil leak for coolant.
+    if "coolant" in lowered:
+        return "coolant_leak"
     for fault_class, keywords in FAULT_KEYWORDS.items():
         if any(kw in lowered for kw in keywords):
             return fault_class

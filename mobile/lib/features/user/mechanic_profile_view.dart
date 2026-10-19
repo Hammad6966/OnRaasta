@@ -1,16 +1,19 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/constants/api_constants.dart';
+import '../../models/bid_model.dart';
+import '../../models/booking_arguments.dart';
+import '../../services/bidding_service.dart';
+import '../../services/review_service.dart';
+import '../../services/socket_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/onraasta_button.dart';
 import '../../core/widgets/skill_chip.dart';
+import '../../core/widgets/mechanic_reviews_panel.dart';
 
 class MechanicProfileView extends StatefulWidget {
-  final Map<String, dynamic> bid;
-  const MechanicProfileView({super.key, required this.bid});
+  final BidSelection selection;
+  const MechanicProfileView({super.key, required this.selection});
 
   @override
   State<MechanicProfileView> createState() => _MechanicProfileViewState();
@@ -18,35 +21,80 @@ class MechanicProfileView extends StatefulWidget {
 
 class _MechanicProfileViewState extends State<MechanicProfileView> {
   int _selectedTab = 0;
-  bool _accepting  = false;
+  ReviewPage? _reputation;
+  bool _accepting = false;
 
-  // ── Derived bid fields ────────────────────────────────────────────────────
+  late BidModel _bid;
+  bool _loading = false;
+  bool _available = true;
+  int _refreshGeneration = 0;
+  String? _error;
+  String get _mechanicName => _bid.mechanicName;
+  List<String> get _skills => _bid.skills;
 
-  String get _bidId =>
-      widget.bid['bidId']  as String? ??
-      widget.bid['_id']    as String? ?? '';
+  @override
+  void initState() {
+    super.initState();
+    _bid = widget.selection.bid;
+    SocketService().on('bid:accepted', _onAssigned);
+    SocketService().on('connect', _onConnect);
+    _refresh();
+  }
 
-  String get _mechanicName =>
-      widget.bid['mechanicName'] as String? ?? 'Mechanic';
+  void _onAssigned(dynamic data) {
+    if (objectId(objectMap(data)['jobId']) == _bid.jobId) _refresh();
+  }
 
-  double get _rating =>
-      (widget.bid['rating'] as num?)?.toDouble() ?? 0.0;
+  void _onConnect(dynamic _) {
+    _refresh();
+  }
 
-  int get _totalJobs =>
-      (widget.bid['totalJobs'] as num?)?.toInt() ??
-      (widget.bid['jobsDone']  as num?)?.toInt() ?? 0;
+  @override
+  void dispose() {
+    ++_refreshGeneration;
+    SocketService().off('bid:accepted', _onAssigned);
+    SocketService().off('connect', _onConnect);
+    super.dispose();
+  }
 
-  int get _totalCost =>
-      (widget.bid['totalCost'] as num?)?.toInt() ?? 0;
-
-  List<String> get _skills {
-    final raw = widget.bid['skills'];
-    if (raw is List) return raw.cast<String>();
-    return [];
+  Future<void> _refresh() async {
+    final generation = ++_refreshGeneration;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final bids = await BiddingService.instance.loadBids(_bid.jobId);
+      if (!mounted || generation != _refreshGeneration) return;
+      final matches = bids.where((b) => b.bidId == _bid.bidId);
+      if (matches.isEmpty) {
+        setState(() {
+          _available = false;
+          _error = 'This bid is no longer available.';
+        });
+      } else {
+        setState(() {
+          _available = true;
+          _bid = _bid.merge(matches.first);
+        });
+      }
+    } on BidFlowException catch (e) {
+      if (mounted && generation == _refreshGeneration) {
+        setState(() => _error = e.message);
+      }
+    } finally {
+      if (mounted && generation == _refreshGeneration) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   String get _initials {
-    final parts = _mechanicName.trim().split(' ');
+    final parts = _mechanicName
+        .trim()
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .toList();
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
@@ -56,46 +104,27 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
   // ── Accept bid ────────────────────────────────────────────────────────────
 
   Future<void> _acceptBid() async {
+    if (_accepting || !_available) return;
     setState(() => _accepting = true);
     try {
-      final storage = const FlutterSecureStorage();
-      final token   = await storage.read(key: 'access_token');
-      if (token == null) {
-        if (!mounted) return;
+      final booking = await BiddingService.instance
+          .accept(BidSelection(job: widget.selection.job, bid: _bid));
+      if (!mounted || booking == null) return;
+      await context.push('/live-tracking', extra: booking);
+      if (mounted) _refresh();
+    } on BidFlowException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message), backgroundColor: AppColors.darkError));
+      if (e.statusCode == 401) {
         context.go('/login');
-        return;
+      } else {
+        _refresh();
       }
-
-      final dio = Dio(BaseOptions(
-        baseUrl: ApiConstants.baseUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
-      ));
-
-      await dio.patch('/bids/$_bidId/accept');
-
-      if (!mounted) return;
-      context.go('/live-tracking', extra: widget.bid);
-    } on DioException catch (e) {
-      if (!mounted) return;
-      final msg = (e.response?.data as Map?)?['message'] as String? ??
-          'Failed to accept bid. Please try again.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          backgroundColor: AppColors.darkError,
-        ),
-      );
     } finally {
       if (mounted) setState(() => _accepting = false);
     }
   }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -110,13 +139,21 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (_loading) const LinearProgressIndicator(),
+                    if (_error != null)
+                      Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(_error!,
+                              style:
+                                  const TextStyle(color: AppColors.darkError))),
+                    TextButton(
+                        onPressed: _refresh,
+                        child: const Text('Refresh profile')),
                     _buildStatsRow(),
                     _buildSkillChips(),
                     _buildTabs(),
                     const SizedBox(height: 8),
-                    _selectedTab == 0
-                        ? _buildReviewsTab()
-                        : _buildAboutTab(),
+                    _selectedTab == 0 ? _buildReviewsTab() : _buildAboutTab(),
                     // Bottom bar clearance
                     const SizedBox(height: 100),
                   ],
@@ -190,19 +227,20 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
                           ),
                         ),
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: AppColors.darkSuccess,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                      if (_bid.isApproved == true)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: AppColors.darkSuccess,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -219,7 +257,7 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
                   Text(
                     _skills.isNotEmpty
                         ? _skills.take(3).join(' · ')
-                        : 'General Mechanic',
+                        : 'Skills unavailable',
                     style: const TextStyle(
                       color: AppColors.darkTextSecondary,
                       fontFamily: 'DM Sans',
@@ -249,7 +287,9 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _rating.toStringAsFixed(1),
+                  _reputation == null
+                      ? _bid.ratingLabel
+                      : _reputation!.rating.toStringAsFixed(1),
                   style: const TextStyle(
                     color: Colors.white,
                     fontFamily: 'Syne',
@@ -266,7 +306,7 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
           ),
           _StatCard(
             value: Text(
-              '$_totalJobs',
+              _bid.totalJobs?.toString() ?? '?',
               style: const TextStyle(
                 color: Colors.white,
                 fontFamily: 'Syne',
@@ -278,9 +318,9 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
             label: 'Jobs Done',
           ),
           _StatCard(
-            value: const Text(
-              '5',
-              style: TextStyle(
+            value: Text(
+              _bid.eta?.toString() ?? '?',
+              style: const TextStyle(
                 color: Colors.white,
                 fontFamily: 'Syne',
                 fontSize: 22,
@@ -288,7 +328,7 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
               ),
               textAlign: TextAlign.center,
             ),
-            label: 'Years Exp',
+            label: 'ETA (min)',
           ),
         ],
       ),
@@ -298,18 +338,14 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
   // ── Skill chips ───────────────────────────────────────────────────────────
 
   Widget _buildSkillChips() {
-    final skills = _skills.isNotEmpty
-        ? _skills
-        : ['General Mechanic'];
+    final skills = _skills;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: skills
-            .map((s) => SkillChip(label: s, isVerified: true))
-            .toList(),
+        children: skills.map((s) => SkillChip(label: s)).toList(),
       ),
     );
   }
@@ -328,23 +364,18 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
             child: GestureDetector(
               onTap: () => setState(() => _selectedTab = i),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 9),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
                 decoration: BoxDecoration(
-                  color: active
-                      ? AppColors.darkPrimary
-                      : AppColors.darkSurface,
-                  border: active
-                      ? null
-                      : Border.all(color: AppColors.darkBorder),
+                  color: active ? AppColors.darkPrimary : AppColors.darkSurface,
+                  border:
+                      active ? null : Border.all(color: AppColors.darkBorder),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   tabs[i],
                   style: TextStyle(
-                    color: active
-                        ? Colors.white
-                        : AppColors.darkTextSecondary,
+                    color: active ? Colors.white : AppColors.darkTextSecondary,
                     fontFamily: 'DM Sans',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -360,183 +391,13 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
 
   // ── Reviews tab ───────────────────────────────────────────────────────────
 
-  Widget _buildReviewsTab() {
-    // Fractions per star level (5→1), loosely based on the rating
-    final fractions = [0.82, 0.65, 0.20, 0.08, 0.03];
-    final counts    = [41, 32, 10, 4, 2];
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Column(
-        children: [
-          // Star distribution
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.darkSurface,
-              border: Border.all(color: AppColors.darkBorder),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: List.generate(5, (i) {
-                final star = 5 - i;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 24,
-                        child: Text(
-                          '$star★',
-                          style: const TextStyle(
-                            color: AppColors.darkTextSecondary,
-                            fontFamily: 'DM Sans',
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Container(
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: AppColors.darkBorder,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: fractions[i],
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: AppColors.darkAccent,
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 24,
-                        child: Text(
-                          '${counts[i]}',
-                          style: const TextStyle(
-                            color: AppColors.darkTextSecondary,
-                            fontFamily: 'DM Sans',
-                            fontSize: 12,
-                          ),
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Mock review cards
-          ..._mockReviews(),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _mockReviews() {
-    final reviews = [
-      ('Ahmad K.',  'Great mechanic! Fixed my car quickly and professionally.', '2 days ago',  5),
-      ('Sara M.',   'Very knowledgeable and honest about pricing. Will use again.',  '1 week ago',  5),
-      ('Fahad R.',  'Arrived on time and solved the issue in under an hour.',      '2 weeks ago', 4),
-    ];
-
-    return reviews.map((r) {
-      final (name, comment, time, stars) = r;
-      final initial = name[0];
-      return Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.darkSurface,
-          border: Border.all(color: AppColors.darkBorder),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.darkBorder,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Text(
-                      initial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'Syne',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'DM Sans',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        time,
-                        style: const TextStyle(
-                          color: AppColors.darkTextSecondary,
-                          fontFamily: 'DM Sans',
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Row(
-                  children: List.generate(
-                    stars,
-                    (_) => const Icon(Icons.star_rounded,
-                        color: AppColors.darkAccent, size: 12),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              comment,
-              style: const TextStyle(
-                color: AppColors.darkTextSecondary,
-                fontFamily: 'DM Sans',
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
-  }
-
-  // ── About tab ─────────────────────────────────────────────────────────────
+  Widget _buildReviewsTab() => Padding(
+      padding: const EdgeInsets.all(16),
+      child: MechanicReviewsPanel(
+          mechanicId: _bid.mechanicId,
+          onLoaded: (value) {
+            if (mounted) setState(() => _reputation = value);
+          }));
 
   Widget _buildAboutTab() {
     return Padding(
@@ -554,24 +415,30 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
               icon: Icons.location_on_rounded,
               iconColor: AppColors.darkPrimary,
               label: 'Shop Location',
-              value: 'Islamabad',
+              value: _bid.shopAddress ?? 'Unavailable',
               valueColor: Colors.white,
             ),
             const Divider(color: AppColors.darkBorder, height: 20),
             _AboutRow(
               icon: Icons.access_time_rounded,
               iconColor: AppColors.darkPrimary,
-              label: 'Response Time',
-              value: '~15 min',
+              label: 'Offer ETA',
+              value: _bid.eta == null ? 'Unavailable' : '${_bid.eta} min',
               valueColor: Colors.white,
             ),
             const Divider(color: AppColors.darkBorder, height: 20),
             _AboutRow(
               icon: Icons.verified_rounded,
               iconColor: AppColors.darkSuccess,
-              label: 'Documents',
-              value: 'Verified ✓',
-              valueColor: AppColors.darkSuccess,
+              label: 'Approval',
+              value: _bid.isApproved == null
+                  ? 'Unavailable'
+                  : _bid.isApproved!
+                      ? 'Approved'
+                      : 'Not approved',
+              valueColor: _bid.isApproved == true
+                  ? AppColors.darkSuccess
+                  : AppColors.darkTextSecondary,
             ),
           ],
         ),
@@ -610,7 +477,7 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
                       ),
                     ),
                     Text(
-                      'PKR $_totalCost',
+                      _bid.priceLabel,
                       style: const TextStyle(
                         color: AppColors.darkAccent,
                         fontFamily: 'Syne',
@@ -623,9 +490,16 @@ class _MechanicProfileViewState extends State<MechanicProfileView> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: OnRaastaButton(
-                    label: 'Accept This Bid →',
+                    label: _bid.status == 'accepted'
+                        ? 'View Booking'
+                        : _bid.status == 'pending'
+                            ? 'Accept This Bid →'
+                            : _bid.status ?? 'Unavailable',
                     isLoading: _accepting,
-                    onPressed: _acceptBid,
+                    onPressed: _available &&
+                            (_bid.canAccept || _bid.status == 'accepted')
+                        ? _acceptBid
+                        : null,
                   ),
                 ),
               ],
@@ -679,10 +553,10 @@ class _StatCard extends StatelessWidget {
 
 class _AboutRow extends StatelessWidget {
   final IconData icon;
-  final Color    iconColor;
-  final String   label;
-  final String   value;
-  final Color    valueColor;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final Color valueColor;
 
   const _AboutRow({
     required this.icon,
@@ -706,15 +580,17 @@ class _AboutRow extends StatelessWidget {
             fontSize: 13,
           ),
         ),
-        const Spacer(),
-        Text(
+        const SizedBox(width: 12),
+        Expanded(
+            child: Text(
           value,
+          textAlign: TextAlign.right,
           style: TextStyle(
             color: valueColor,
             fontFamily: 'DM Sans',
             fontSize: 13,
           ),
-        ),
+        )),
       ],
     );
   }

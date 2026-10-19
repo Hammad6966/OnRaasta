@@ -1,14 +1,13 @@
+import '../../services/auth_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/onraasta_button.dart';
 import '../../core/widgets/onraasta_input.dart';
-import '../../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,13 +17,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey             = GlobalKey<FormState>();
-  final _storage             = const FlutterSecureStorage();
-  final _phoneController     = TextEditingController();
-  final _passwordController  = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
-  bool _isLoading       = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -36,28 +34,16 @@ class _LoginScreenState extends State<LoginScreen> {
   // ── Login ─────────────────────────────────────────────────────────────────────
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_isLoading || !_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService.instance.dio.post(
-        '/auth/login',
-        data: {
-          'phone':    _phoneController.text.trim(),
-          'password': _passwordController.text,
-        },
-      );
-      final data = response.data as Map<String, dynamic>;
-
-      await Future.wait([
-        _storage.write(key: 'access_token',  value: data['accessToken']        as String),
-        _storage.write(key: 'refresh_token', value: data['refreshToken']       as String),
-        _storage.write(key: 'user_role',     value: data['user']['role']       as String),
-        _storage.write(key: 'user_id',       value: data['user']['id'].toString()),
-      ]);
-
+      final user = await AuthService.instance.authenticate('/auth/login', {
+        'phone': _phoneController.text.trim(),
+        'password': _passwordController.text
+      });
       if (!mounted) return;
-      final role = data['user']['role'] as String;
+      final role = user['role'] as String;
       context.go(role == 'mechanic' ? '/mechanic-home' : '/user-home');
     } on DioException catch (e) {
       if (!mounted) return;
@@ -73,11 +59,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:         Text(message, style: GoogleFonts.dmSans()),
+          content: Text(message, style: GoogleFonts.dmSans()),
           backgroundColor: AppColors.darkError,
-          behavior:        SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.floating,
         ),
       );
+    } on SessionFailure catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -110,7 +101,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.darkBorder),
                     ),
-                    child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                    child: const Icon(Icons.arrow_back,
+                        color: Colors.white, size: 20),
                   ),
                 ),
 
@@ -119,9 +111,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Welcome back 👋',
                   style: GoogleFonts.syne(
-                    fontSize:   26,
+                    fontSize: 26,
                     fontWeight: FontWeight.w700,
-                    color:      AppColors.darkTextPrimary,
+                    color: AppColors.darkTextPrimary,
                   ),
                 ),
 
@@ -131,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Sign in to continue',
                   style: GoogleFonts.dmSans(
                     fontSize: 14,
-                    color:    AppColors.darkTextSecondary,
+                    color: AppColors.darkTextSecondary,
                   ),
                 ),
 
@@ -146,17 +138,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 // ── Password ───────────────────────────────────────────────────
 
                 OnRaastaInput(
-                  controller:   _passwordController,
-                  label:        'PASSWORD',
-                  hint:         '••••••••',
-                  prefixIcon:   const Icon(
+                  controller: _passwordController,
+                  label: 'PASSWORD',
+                  hint: '••••••••',
+                  prefixIcon: const Icon(
                     Icons.lock_outline,
                     color: AppColors.darkTextSecondary,
                     size: 20,
                   ),
-                  obscureText:  _obscurePassword,
-                  suffixIcon:   GestureDetector(
-                    onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                  obscureText: _obscurePassword,
+                  suffixIcon: GestureDetector(
+                    onTap: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                     child: Icon(
                       _obscurePassword
                           ? Icons.visibility_outlined
@@ -182,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Forgot password?',
                       style: GoogleFonts.dmSans(
                         fontSize: 13,
-                        color:    AppColors.darkPrimary,
+                        color: AppColors.darkPrimary,
                       ),
                     ),
                   ),
@@ -191,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
 
                 OnRaastaButton(
-                  label:     'Sign In →',
+                  label: 'Sign In →',
                   isLoading: _isLoading,
                   onPressed: _handleLogin,
                 ),
@@ -206,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       "Don't have an account? ",
                       style: GoogleFonts.dmSans(
                         fontSize: 14,
-                        color:    AppColors.darkTextSecondary,
+                        color: AppColors.darkTextSecondary,
                       ),
                     ),
                     GestureDetector(
@@ -214,8 +207,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         'Sign Up',
                         style: GoogleFonts.dmSans(
-                          fontSize:   14,
-                          color:      AppColors.darkPrimary,
+                          fontSize: 14,
+                          color: AppColors.darkPrimary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -248,9 +241,9 @@ class _LoginPhoneField extends StatelessWidget {
         Text(
           'PHONE NUMBER',
           style: GoogleFonts.dmSans(
-            fontSize:    11,
-            fontWeight:  FontWeight.w600,
-            color:       AppColors.darkTextSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppColors.darkTextSecondary,
             letterSpacing: 0.8,
           ),
         ),
@@ -263,16 +256,16 @@ class _LoginPhoneField extends StatelessWidget {
               height: 52,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color:        AppColors.darkSurface,
+                color: AppColors.darkSurface,
                 borderRadius: BorderRadius.circular(14),
-                border:       Border.all(color: AppColors.darkBorder),
+                border: Border.all(color: AppColors.darkBorder),
               ),
               alignment: Alignment.center,
               child: Text(
                 '+92',
                 style: GoogleFonts.dmSans(
-                  fontSize:   14,
-                  color:      AppColors.darkTextSecondary,
+                  fontSize: 14,
+                  color: AppColors.darkTextSecondary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -281,25 +274,25 @@ class _LoginPhoneField extends StatelessWidget {
             // Number input
             Expanded(
               child: TextFormField(
-                controller:      controller,
-                keyboardType:    TextInputType.phone,
-                maxLength:       10,
+                controller: controller,
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: GoogleFonts.dmSans(
-                  color:    AppColors.darkTextPrimary,
+                  color: AppColors.darkTextPrimary,
                   fontSize: 14,
                 ),
                 decoration: InputDecoration(
-                  hintText:    '3001234567',
-                  hintStyle:   GoogleFonts.dmSans(
-                    color:    const Color(0xFF4B6280),
+                  hintText: '3001234567',
+                  hintStyle: GoogleFonts.dmSans(
+                    color: const Color(0xFF4B6280),
                     fontSize: 14,
                   ),
                   counterText: '',
                 ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Phone is required';
-                  if (v.length != 10)         return 'Must be exactly 10 digits';
+                  if (v.length != 10) return 'Must be exactly 10 digits';
                   return null;
                 },
               ),

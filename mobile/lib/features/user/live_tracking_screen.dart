@@ -1,14 +1,17 @@
-import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/status_badge.dart';
+import '../../models/bid_model.dart';
+import '../../models/booking_arguments.dart';
+import '../../providers/assignment_controller.dart';
+import '../../providers/job_location_controller.dart';
+import '../../services/job_location_service.dart';
+import '../../services/assignment_service.dart';
 import '../../services/socket_service.dart';
+import '../../core/widgets/assignment_state_banner.dart';
 
 // ── Dark map style (same as M05) ──────────────────────────────────────────────
 
@@ -26,34 +29,38 @@ const _darkMapStyle = '''[
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class LiveTrackingScreen extends StatefulWidget {
-  final Map<String, dynamic> bid;
-  const LiveTrackingScreen({super.key, required this.bid});
+  final AcceptedBooking booking;
+  final AssignmentDetailController? controller;
+  final JobLocationController? locationController;
+  const LiveTrackingScreen(
+      {super.key,
+      required this.booking,
+      this.controller,
+      this.locationController});
 
   @override
   State<LiveTrackingScreen> createState() => _LiveTrackingScreenState();
 }
 
-class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
+class _LiveTrackingScreenState extends State<LiveTrackingScreen>
+    with WidgetsBindingObserver {
   GoogleMapController? _mapController;
+  bool _progressScheduled = false;
+  late final JobLocationController _tracking;
+  late final AssignmentDetailController _assignment;
+  AcceptedBooking get _booking => _assignment.booking;
 
   LatLng? _userPosition;
-  LatLng  _mechanicPosition = const LatLng(33.6964, 73.0679); // mock start
-
-  int  _etaMinutes  = 15;
-  int  _currentStep = 0;
-  int  _stepIndex   = 0; // tracks arrival to prevent double-navigation
-
-  Timer? _mockTimer;
-
+  // A viewport fallback is not a claimed driver or mechanic position.
   static const LatLng _fallback = LatLng(33.6844, 73.0479);
-
-  // ── Step definitions ───────────────────────────────────────────────────────
+  int get _currentStep => ['en_route', 'arrived', 'in_progress', 'completed']
+      .indexOf(_booking.job['status'] as String);
 
   static const _steps = [
-    (label: 'En Route',    icon: Icons.directions_car_rounded),
-    (label: 'Arrived',     icon: Icons.place_rounded),
+    (label: 'En Route', icon: Icons.directions_car_rounded),
+    (label: 'Arrived', icon: Icons.place_rounded),
     (label: 'In Progress', icon: Icons.build_rounded),
-    (label: 'Completed',   icon: Icons.check_circle_rounded),
+    (label: 'Completed', icon: Icons.check_circle_rounded),
   ];
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -61,133 +68,91 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   @override
   void initState() {
     super.initState();
-    _etaMinutes = (widget.bid['eta'] as num?)?.toInt() ?? 15;
-    _initLocation();
-    _connectSocket();
+    WidgetsBinding.instance.addObserver(this);
+    _assignment = widget.controller ??
+        AssignmentDetailController(
+            booking: widget.booking,
+            socket: SocketService(),
+            load: AssignmentService.instance.load);
+    _tracking = widget.locationController ??
+        JobLocationController(
+            assignment: _assignment,
+            socket: SocketService(),
+            load: JobLocationService.instance.latest);
+    _tracking.addListener(_locationChanged);
+    _assignment.addListener(_changed);
+    _assignment.reload();
+    _updatePosition();
+  }
+
+  void _locationChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _changed() {
+    if (mounted) {
+      setState(_updatePosition);
+      if (!_progressScheduled &&
+          _assignment.verified &&
+          !_assignment.accessDenied &&
+          ['in_progress', 'completed'].contains(_booking.job['status'])) {
+        _progressScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_assignment.verified &&
+              !_assignment.accessDenied &&
+              ['in_progress', 'completed'].contains(_booking.job['status']) &&
+              (ModalRoute.of(context)?.isCurrent ?? false)) {
+            context.pushReplacement('/job-in-progress', extra: _booking);
+          } else {
+            _progressScheduled = false;
+          }
+        });
+      }
+    }
+  }
+
+  void _updatePosition() {
+    _userPosition = null;
+    final location = objectMap(_booking.job['location']);
+    final lat = finiteNumber(location['lat']);
+    final lng = finiteNumber(location['lng']);
+    if (lat != null && lng != null && lat.abs() <= 90 && lng.abs() <= 180) {
+      _userPosition = LatLng(lat, lng);
+    }
+    // The breakdown coordinate is saved data; only authorized observations move the mechanic marker.
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _tracking.setForeground(true);
+      _assignment.reload();
+    } else if ([
+      AppLifecycleState.paused,
+      AppLifecycleState.hidden,
+      AppLifecycleState.detached
+    ].contains(state)) {
+      _tracking.setForeground(false);
+    }
   }
 
   @override
   void dispose() {
-    _mockTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _tracking.removeListener(_locationChanged);
+    _tracking.dispose();
+    _assignment.removeListener(_changed);
+    _assignment.dispose();
     _mapController?.dispose();
-    SocketService().off('job:mechanic_location');
     super.dispose();
   }
 
-  // ── Location ───────────────────────────────────────────────────────────────
-
-  Future<void> _initLocation() async {
-    try {
-      LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) {
-        _setUserPosition(_fallback);
-        return;
-      }
-
-      final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      final loc = LatLng(pos.latitude, pos.longitude);
-      _setUserPosition(loc);
-    } catch (_) {
-      _setUserPosition(_fallback);
-    }
-  }
-
-  void _setUserPosition(LatLng loc) {
-    if (!mounted) return;
-    setState(() {
-      _userPosition = loc;
-      // Mock mechanic starts ~0.02 degrees away (≈2 km)
-      _mechanicPosition = LatLng(
-        loc.latitude  + 0.02,
-        loc.longitude + 0.01,
-      );
-    });
-    _updateEta();
-    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(loc, 14));
-    _startMockMovement();
-  }
-
-  // ── Socket ─────────────────────────────────────────────────────────────────
-
-  void _connectSocket() {
-    SocketService().on('job:mechanic_location', (data) {
-      if (!mounted || data == null) return;
-      final lat = (data['lat'] as num?)?.toDouble();
-      final lng = (data['lng'] as num?)?.toDouble();
-      if (lat == null || lng == null) return;
-      setState(() => _mechanicPosition = LatLng(lat, lng));
-      _updateEta();
-    });
-  }
-
-  // ── ETA calculation ────────────────────────────────────────────────────────
-
-  void _updateEta() {
-    final user = _userPosition;
-    if (user == null) return;
-
-    final dLat = _mechanicPosition.latitude  - user.latitude;
-    final dLng = _mechanicPosition.longitude - user.longitude;
-    final dist  = math.sqrt(dLat * dLat + dLng * dLng);
-
-    // ~111 km per degree; assume 30 km/h → 0.5 deg/min
-    final eta = (dist / 0.005).round().clamp(1, 99);
-    if (mounted) setState(() => _etaMinutes = eta);
-  }
-
-  // ── Mock movement (demo) ───────────────────────────────────────────────────
-
-  void _startMockMovement() {
-    _mockTimer?.cancel();
-    _mockTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      final user = _userPosition;
-      if (!mounted || user == null) return;
-
-      final dLat = user.latitude  - _mechanicPosition.latitude;
-      final dLng = user.longitude - _mechanicPosition.longitude;
-      final dist  = math.sqrt(dLat * dLat + dLng * dLng);
-
-      if (dist < 0.002) {
-        _mockTimer?.cancel();
-        if (mounted) setState(() => _currentStep = 1); // Arrived
-        if (_stepIndex == 0) {
-          Future.delayed(const Duration(seconds: 3), () {
-            if (mounted) {
-              context.push('/job-in-progress', extra: {
-                'mechanicName': widget.bid['mechanicName'] ?? 'Mechanic',
-                'rating':       widget.bid['rating']       ?? 4.5,
-                'labourCost':   widget.bid['labourCost']   ?? 1000,
-                'partsCost':    widget.bid['partsCost']    ?? 500,
-                'totalCost':    widget.bid['totalCost']    ?? 1500,
-                'jobId':        widget.bid['jobId']        ?? widget.bid['_id'] ?? '',
-                'bidId':        widget.bid['bidId']        ?? widget.bid['_id'] ?? '',
-              });
-            }
-          });
-          _stepIndex = 1;
-        }
-        return;
-      }
-
-      setState(() {
-        _mechanicPosition = LatLng(
-          _mechanicPosition.latitude  + dLat * 0.06,
-          _mechanicPosition.longitude + dLng * 0.06,
-        );
-      });
-      _updateEta();
-    });
-  }
-
-  // ── Recenter ───────────────────────────────────────────────────────────────
-
   void _recenter() {
-    final target = _userPosition ?? _fallback;
+    final point = _tracking.location;
+    final target = point == null
+        ? _userPosition ?? _fallback
+        : LatLng(point.lat, point.lng);
     _mapController?.animateCamera(CameraUpdate.newLatLngZoom(target, 14));
   }
 
@@ -195,47 +160,36 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
 
   Set<Marker> get _markers {
     final user = _userPosition;
+    final mechanic = _tracking.location;
     return {
+      if (mechanic != null)
+        Marker(
+            markerId: const MarkerId('mechanic'),
+            position: LatLng(mechanic.lat, mechanic.lng),
+            icon: BitmapDescriptor.defaultMarkerWithHue(30),
+            infoWindow: InfoWindow(
+                title: _booking.bid.mechanicName, snippet: _tracking.label)),
       if (user != null)
         Marker(
           markerId: const MarkerId('user'),
           position: user,
           icon: BitmapDescriptor.defaultMarkerWithHue(210),
-          infoWindow: const InfoWindow(title: 'You'),
+          infoWindow: const InfoWindow(title: 'Breakdown location'),
           zIndex: 2,
         ),
-      Marker(
-        markerId: const MarkerId('mechanic'),
-        position: _mechanicPosition,
-        icon: BitmapDescriptor.defaultMarkerWithHue(30),
-        infoWindow: InfoWindow(
-          title: widget.bid['mechanicName'] as String? ?? 'Mechanic',
-        ),
-        zIndex: 3,
-      ),
     };
   }
-
-  Set<Polyline> get _polylines {
-    final user = _userPosition;
-    if (user == null) return {};
-    return {
-      Polyline(
-        polylineId: const PolylineId('route'),
-        color: AppColors.darkPrimary,
-        width: 4,
-        points: [_mechanicPosition, user],
-        patterns: [],
-      ),
-    };
-  }
-
-  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final center = _userPosition ?? _fallback;
 
+    if (_assignment.accessDenied) {
+      return Scaffold(
+          backgroundColor: AppColors.darkBg,
+          body:
+              SafeArea(child: AssignmentStateBanner(controller: _assignment)));
+    }
     return Scaffold(
       backgroundColor: AppColors.darkBg,
       body: Stack(
@@ -244,8 +198,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
           GoogleMap(
             initialCameraPosition: CameraPosition(target: center, zoom: 14),
             markers: _markers,
-            polylines: _polylines,
-            myLocationEnabled: true,
+            myLocationEnabled: false,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
@@ -254,8 +207,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
               _mapController = c;
               await c.setMapStyle(_darkMapStyle);
               if (_userPosition != null) {
-                c.animateCamera(
-                    CameraUpdate.newLatLngZoom(_userPosition!, 14));
+                c.animateCamera(CameraUpdate.newLatLngZoom(_userPosition!, 14));
               }
             },
           ),
@@ -268,8 +220,8 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
             child: SafeArea(
               child: Container(
                 color: const Color(0xE6050A14),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     GestureDetector(
@@ -279,8 +231,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                         height: 36,
                         decoration: BoxDecoration(
                           color: AppColors.darkSurface,
-                          border:
-                              Border.all(color: AppColors.darkBorder),
+                          border: Border.all(color: AppColors.darkBorder),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.arrow_back_rounded,
@@ -288,13 +239,15 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Mechanic En Route',
-                            style: TextStyle(
+                            _booking.job['status'] == 'cancelled'
+                                ? 'Booking Cancelled'
+                                : 'Booking Confirmed',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontFamily: 'Syne',
                               fontSize: 16,
@@ -302,8 +255,11 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                             ),
                           ),
                           Text(
-                            'Tracking live location',
-                            style: TextStyle(
+                            _tracking.location == null &&
+                                    _booking.job['status'] != 'en_route'
+                                ? 'Live location unavailable'
+                                : _tracking.label,
+                            style: const TextStyle(
                               color: AppColors.darkTextSecondary,
                               fontFamily: 'DM Sans',
                               fontSize: 13,
@@ -312,12 +268,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                         ],
                       ),
                     ),
-                    StatusBadge(
-                        status: _currentStep == 0
-                            ? 'en_route'
-                            : _currentStep == 1
-                                ? 'arrived'
-                                : 'in_progress'),
+                    StatusBadge(status: _booking.job['status'] as String),
                   ],
                 ),
               ),
@@ -325,6 +276,23 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
           ),
 
           // ── Layer 3: ETA bottom sheet ──────────────────────────────────────
+          Positioned(
+              top: 140,
+              left: 12,
+              right: 12,
+              child: SafeArea(
+                  child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                          onPressed:
+                              _tracking.foreground ? _tracking.retry : null,
+                          child: const Text('Refresh mechanic location'))))),
+          Positioned(
+              top: 92,
+              left: 12,
+              right: 12,
+              child: SafeArea(
+                  child: AssignmentStateBanner(controller: _assignment))),
           Positioned(
             bottom: 0,
             left: 0,
@@ -365,10 +333,9 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   // ── Bottom sheet ───────────────────────────────────────────────────────────
 
   Widget _buildBottomSheet() {
-    final mechanicName =
-        widget.bid['mechanicName'] as String? ?? 'Mechanic';
-    final rating =
-        (widget.bid['rating'] as num?)?.toStringAsFixed(1) ?? '4.5';
+    final bid = _booking.bid;
+    final mechanicName = bid.mechanicName;
+    final rating = bid.ratingLabel;
 
     return Container(
       decoration: const BoxDecoration(
@@ -432,7 +399,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       const Text(
-                        'ETA',
+                        'Mechanic ETA estimate',
                         style: TextStyle(
                           color: AppColors.darkTextSecondary,
                           fontFamily: 'DM Sans',
@@ -440,7 +407,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                         ),
                       ),
                       Text(
-                        '$_etaMinutes min',
+                        bid.eta == null ? 'Unavailable' : '${bid.eta} min',
                         style: const TextStyle(
                           color: AppColors.darkAccent,
                           fontFamily: 'Syne',
@@ -457,6 +424,18 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
               const Divider(color: AppColors.darkBorder, height: 1),
               const SizedBox(height: 16),
 
+              Text(
+                  '${money(bid.labourCost)} labour + ${money(bid.partsCost)} parts',
+                  style: const TextStyle(
+                      color: AppColors.darkTextSecondary,
+                      fontFamily: 'DM Sans')),
+              Text(bid.priceLabel,
+                  key: const Key('confirmed-total'),
+                  style: const TextStyle(
+                      color: AppColors.darkAccent,
+                      fontFamily: 'Syne',
+                      fontSize: 18)),
+              const SizedBox(height: 12),
               // Call / Message buttons
               Row(
                 children: [

@@ -1,15 +1,24 @@
+import '../../models/bid_model.dart';
+import '../../core/widgets/assignment_panel.dart';
+import '../../models/booking_arguments.dart';
+import '../../providers/assignment_controller.dart';
+import '../../services/assignment_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../services/api_service.dart';
+import '../../models/job_request.dart';
+export '../../models/job_request.dart' show JobRequest;
+import '../../providers/mechanic_presence_controller.dart';
+import '../../providers/job_tracking_publisher.dart';
+import '../../services/foreground_location.dart';
+import '../../services/mechanic_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/socket_service.dart';
 import 'mechanic_earnings_screen.dart';
 import 'mechanic_profile_edit.dart';
+import '../../services/profile_service.dart';
 
 // ── Dark map style ─────────────────────────────────────────────────────────────
 
@@ -26,198 +35,124 @@ const _darkMapStyle = '''[
 
 // ── Job request model ─────────────────────────────────────────────────────────
 
-class JobRequest {
-  final String jobId;
-  final String description;
-  final double distance;
-  final DateTime createdAt;
-  final Map<String, dynamic>? aiDiagnosis;
-  bool isNew;
-
-  JobRequest({
-    required this.jobId,
-    required this.description,
-    required this.distance,
-    required this.createdAt,
-    this.aiDiagnosis,
-    this.isNew = false,
-  });
-
-  factory JobRequest.fromJson(Map<String, dynamic> json) {
-    final createdAtRaw = json['createdAt'] as String?;
-    return JobRequest(
-      jobId:       json['jobId']       as String? ?? json['_id'] as String? ?? '',
-      description: json['description'] as String? ?? 'Job request',
-      distance:    (json['distance']   as num?)?.toDouble() ?? 0.0,
-      createdAt:   createdAtRaw != null
-          ? DateTime.tryParse(createdAtRaw) ?? DateTime.now()
-          : DateTime.now(),
-      aiDiagnosis: json['aiDiagnosis'] as Map<String, dynamic>?,
-      isNew:       true,
-    );
-  }
-
-  String get timeAgo {
-    final diff = DateTime.now().difference(createdAt);
-    if (diff.inSeconds < 60) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    return '${diff.inHours}h ago';
-  }
-
-  String? get faultLabel =>
-      (aiDiagnosis?['fault_class'] as String?)?.replaceAll('_', ' ');
-  String? get costMin => aiDiagnosis?['cost_min']?.toString();
-  String? get costMax => aiDiagnosis?['cost_max']?.toString();
-
-  Map<String, dynamic> toJson() => {
-        'jobId':       jobId,
-        'description': description,
-        'distance':    distance,
-        'createdAt':   createdAt.toIso8601String(),
-        'aiDiagnosis': aiDiagnosis,
-      };
-}
-
-// ── Screen ────────────────────────────────────────────────────────────────────
-
 class MechanicHomeScreen extends StatefulWidget {
-  const MechanicHomeScreen({super.key});
+  final MechanicPresenceController? presence;
+  final AssignmentInboxController? assignments;
+  final JobTrackingPublisher? tracking;
+  const MechanicHomeScreen(
+      {super.key, this.presence, this.assignments, this.tracking});
 
   @override
   State<MechanicHomeScreen> createState() => _MechanicHomeScreenState();
 }
 
-class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
-  bool _isOnline = false;
-  String _mechanicName = '';
-  String _mechanicId   = '';
-  int    _totalJobs    = 0;
-  double _rating       = 0.0;
-  int    _earnings     = 0;
-
-  final List<JobRequest> _jobs = [];
-
+class _MechanicHomeScreenState extends State<MechanicHomeScreen>
+    with WidgetsBindingObserver {
+  late final MechanicPresenceController _presence;
+  late final AssignmentInboxController _assignments;
+  bool _openingAssignment = false;
+  JobTrackingPublisher? _tracking;
+  bool get _isOnline => _presence.online;
+  String get _mechanicName => _presence.name;
+  List<JobRequest> get _jobs => _presence.jobs;
   GoogleMapController? _mapController;
-  LatLng? _currentLocation;
-
-  static const LatLng _fallback = LatLng(33.6844, 73.0479); // Islamabad
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────────
-
+  LatLng? get _currentLocation => _presence.location == null
+      ? null
+      : LatLng(_presence.location!.lat, _presence.location!.lng);
+  static const LatLng _fallback =
+      LatLng(33.6844, 73.0479); // Viewport only, never submitted as GPS.
   @override
   void initState() {
     super.initState();
-    _loadProfile();
-    _connectSocket();
-    _initLocation();
+    WidgetsBinding.instance.addObserver(this);
+    _presence = widget.presence ??
+        MechanicPresenceController(
+            socket: SocketService(),
+            gps: DeviceForegroundLocation.shared,
+            token: AuthService.instance.getAccessToken,
+            profile: MechanicService.instance.profile,
+            loadRequests: MechanicService.instance.requests);
+    _assignments = widget.assignments ??
+        AssignmentInboxController(
+            socket: SocketService(),
+            loadActive: AssignmentService.instance.recover,
+            loadOne: AssignmentService.instance.load,
+            onUnavailable: _presence.invalidateOpportunity);
+    _assignments.refresh();
+    _presence.addListener(_updated);
+    _presence.initialize();
+    _presence.socket.on('job:status_changed', _completedStatus);
+    ProfileService.mechanicChanges.addListener(_profileChanged);
+    _tracking = widget.tracking ??
+        (widget.presence == null
+            ? JobTrackingPublisher(
+                socket: SocketService(),
+                gps: DeviceForegroundLocation.shared,
+                assignments: AssignmentService.instance.active,
+                profile: MechanicService.instance.profile,
+                token: AuthService.instance.getAccessToken)
+            : null);
+    if (_tracking != null) {
+      JobTrackingPublisher.current = _tracking;
+      _tracking!.reconcile();
+    }
+  }
+
+  void _completedStatus(dynamic data) {
+    if (objectMap(data)['status'] == 'completed') _presence.initialize();
+  }
+
+  void _profileChanged() {
+    _presence.initialize();
+    _tracking?.reconcile();
+  }
+
+  void _updated() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _assignments.refresh();
+      _presence.initialize();
+      _presence.setForeground(true);
+      _tracking?.setForeground(true);
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _tracking?.setForeground(false);
+      _presence.setForeground(false);
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _tracking?.dispose();
+    _assignments.dispose();
+    _presence.removeListener(_updated);
+    ProfileService.mechanicChanges.removeListener(_profileChanged);
+    _presence.socket.off('job:status_changed', _completedStatus);
+    _presence.dispose();
     _mapController?.dispose();
-    SocketService().off('job:new_request');
     super.dispose();
   }
 
-  // ── Location ──────────────────────────────────────────────────────────────────
-
-  Future<void> _initLocation() async {
+  Future<void> _openAssignment(AcceptedBooking booking) async {
+    if (_openingAssignment) return;
+    _openingAssignment = true;
     try {
-      LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
+      await context.push('/active-job', extra: booking);
+    } finally {
+      if (mounted) {
+        _openingAssignment = false;
+        _assignments.refresh();
       }
-      if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) return;
-
-      final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      final loc = LatLng(pos.latitude, pos.longitude);
-      if (!mounted) return;
-      setState(() => _currentLocation = loc);
-      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(loc, 14));
-    } catch (_) {}
-  }
-
-  // ── Profile ───────────────────────────────────────────────────────────────────
-
-  Future<void> _loadProfile() async {
-    try {
-      final res  = await ApiService.instance.dio.get('/mechanics/profile');
-      final data = res.data['data'] as Map<String, dynamic>;
-      final user = data['userId'] as Map<String, dynamic>?;
-      setState(() {
-        _mechanicId   = data['_id']       as String? ?? '';
-        _totalJobs    = (data['totalJobs'] as num?)?.toInt()    ?? 0;
-        _rating       = (data['rating']    as num?)?.toDouble() ?? 0.0;
-        _earnings     = (data['earnings']  as num?)?.toInt()    ?? 0;
-        _mechanicName = user?['name']      as String? ?? 'Mechanic';
-      });
-    } catch (_) {}
-  }
-
-  // ── Socket ────────────────────────────────────────────────────────────────────
-
-  Future<void> _connectSocket() async {
-    final token = await AuthService.instance.getAccessToken();
-    if (token != null) SocketService().connect(token);
-
-    SocketService().on('job:new_request', (data) {
-      if (!mounted) return;
-      final raw = data is Map
-          ? Map<String, dynamic>.from(data as Map)
-          : <String, dynamic>{};
-      final job = JobRequest.fromJson(raw);
-      setState(() => _jobs.insert(0, job));
-      // Clear NEW badge after 30s
-      Future.delayed(const Duration(seconds: 30), () {
-        if (mounted) setState(() => job.isNew = false);
-      });
-    });
-  }
-
-  // ── Online toggle ─────────────────────────────────────────────────────────────
-
-  Future<void> _toggleOnline() async {
-    final goingOnline = !_isOnline;
-    setState(() => _isOnline = goingOnline);
-
-    if (goingOnline) {
-      double lat = _currentLocation?.latitude  ?? 0.0;
-      double lng = _currentLocation?.longitude ?? 0.0;
-
-      if (lat == 0.0) {
-        try {
-          LocationPermission perm = await Geolocator.checkPermission();
-          if (perm == LocationPermission.denied) {
-            perm = await Geolocator.requestPermission();
-          }
-          if (perm != LocationPermission.denied &&
-              perm != LocationPermission.deniedForever) {
-            final pos = await Geolocator.getCurrentPosition(
-                desiredAccuracy: LocationAccuracy.high);
-            lat = pos.latitude;
-            lng = pos.longitude;
-            if (mounted) {
-              setState(() => _currentLocation = LatLng(lat, lng));
-            }
-          }
-        } catch (_) {}
-      }
-
-      SocketService().emit('mechanic:go_online', {
-        'mechanicId': _mechanicId,
-        'lat': lat,
-        'lng': lng,
-      });
-    } else {
-      SocketService().emit('mechanic:go_offline', {
-        'mechanicId': _mechanicId,
-      });
     }
   }
 
-  // ── Map widget ────────────────────────────────────────────────────────────────
+  Future<void> _toggleOnline() => _presence.toggle();
 
   Widget _buildMap() {
     final center = _currentLocation ?? _fallback;
@@ -235,8 +170,8 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
           // Map
           GoogleMap(
             initialCameraPosition: CameraPosition(target: center, zoom: 14),
-            markers: {marker},
-            myLocationEnabled: true,
+            markers: _currentLocation == null ? {} : {marker},
+            myLocationEnabled: false,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
@@ -256,12 +191,11 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
             top: 12,
             left: 16,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xD9050A14),
-                border: Border.all(
-                    color: AppColors.darkSuccess.withOpacity(0.3)),
+                border:
+                    Border.all(color: AppColors.darkSuccess.withOpacity(0.3)),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -294,8 +228,7 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
             top: 12,
             right: 16,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xD9050A14),
                 border: Border.all(color: AppColors.darkBorder),
@@ -311,8 +244,7 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
             bottom: 10,
             left: 16,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xD9050A14),
                 border: Border.all(color: AppColors.darkBorder),
@@ -343,8 +275,7 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.darkSuccess.withOpacity(0.08),
-          border: Border.all(
-              color: AppColors.darkSuccess.withOpacity(0.2)),
+          border: Border.all(color: AppColors.darkSuccess.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -390,15 +321,18 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
             const Spacer(),
             // Toggle
             GestureDetector(
-              onTap: _toggleOnline,
+              onTap: _presence.busy ||
+                      _presence.loadingProfile ||
+                      !_presence.approved
+                  ? null
+                  : _toggleOnline,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 width: 52,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: _isOnline
-                      ? AppColors.darkSuccess
-                      : AppColors.darkBorder,
+                  color:
+                      _isOnline ? AppColors.darkSuccess : AppColors.darkBorder,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Stack(
@@ -465,8 +399,8 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
                   const SizedBox(width: 8),
                   IconButton(
                     onPressed: () async {
-                      await const FlutterSecureStorage().deleteAll();
-                      if (!mounted) return;
+                      await AuthService.instance.logout();
+                      if (!context.mounted) return;
                       context.go('/splash');
                     },
                     icon: const Icon(Icons.logout_rounded,
@@ -479,10 +413,35 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
             ),
 
             // ── Map ──────────────────────────────────────────────────────────
+            if (_presence.completedJobs != null)
+              Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('${_presence.completedJobs} completed jobs',
+                      style: const TextStyle(
+                          color: AppColors.darkTextSecondary, fontSize: 11))),
             _buildMap(),
 
             // ── Online bar ───────────────────────────────────────────────────
+            AssignmentPanel(controller: _assignments, onOpen: _openAssignment),
             _buildOnlineBar(),
+            if (_presence.busy ||
+                _presence.loadingProfile ||
+                _presence.feedLoading)
+              const LinearProgressIndicator(),
+            if (_presence.error != null || _presence.feedError != null)
+              Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(_presence.error ?? _presence.feedError!,
+                      style: const TextStyle(color: AppColors.darkError))),
+            TextButton(
+                onPressed: _presence.busy
+                    ? null
+                    : _presence.online
+                        ? _presence.refreshRequests
+                        : _presence.initialize,
+                child: Text(_presence.online
+                    ? 'Refresh requests'
+                    : 'Refresh approval')),
 
             const SizedBox(height: 12),
 
@@ -495,14 +454,13 @@ class _MechanicHomeScreenState extends State<MechanicHomeScreen> {
                       itemCount: _jobs.length,
                       itemBuilder: (_, i) => _JobCard(
                         job: _jobs[i],
-                        onDecline: () =>
-                            setState(() => _jobs.removeAt(i)),
+                        onDecline: () => _presence.decline(_jobs[i].jobId),
                         onView: () => context.push(
                           '/new-request-detail',
                           extra: _jobs[i].toJson(),
                         ),
                         onActiveJob: () => context.push(
-                          '/active-job',
+                          '/submit-bid',
                           extra: _jobs[i].toJson(),
                         ),
                       ),
@@ -557,8 +515,7 @@ class _JobCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          job.faultLabel?.toUpperCase() ??
-                              'Job Request',
+                          job.faultLabel?.toUpperCase() ?? 'Job Request',
                           style: const TextStyle(
                             color: Colors.white,
                             fontFamily: 'Syne',
@@ -573,7 +530,7 @@ class _JobCard extends StatelessWidget {
                                 color: AppColors.darkAccent, size: 12),
                             const SizedBox(width: 3),
                             Text(
-                              '${job.distance.toStringAsFixed(1)} km away',
+                              job.distanceLabel,
                               style: const TextStyle(
                                 color: AppColors.darkAccent,
                                 fontFamily: 'DM Sans',
@@ -610,8 +567,7 @@ class _JobCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Center(
-                      child: Text('🚗',
-                          style: TextStyle(fontSize: 18)),
+                      child: Text('🚗', style: TextStyle(fontSize: 18)),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -637,8 +593,7 @@ class _JobCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: AppColors.darkAccent.withOpacity(0.08),
                               border: Border.all(
-                                  color: AppColors.darkAccent
-                                      .withOpacity(0.2)),
+                                  color: AppColors.darkAccent.withOpacity(0.2)),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -671,8 +626,7 @@ class _JobCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.only(top: 10),
                 decoration: const BoxDecoration(
-                  border: Border(
-                      top: BorderSide(color: AppColors.darkBorder)),
+                  border: Border(top: BorderSide(color: AppColors.darkBorder)),
                 ),
                 child: Row(
                   children: [
@@ -709,14 +663,11 @@ class _JobCard extends StatelessWidget {
                       onTap: onView,
                     ),
                     const SizedBox(width: 8),
-                    // Active Job (shown when status is accepted)
-                    if ((job.aiDiagnosis?['status'] as String?) == 'accepted' ||
-                        true) // DEV: always show for testing
-                      _SmallButton(
-                        label: 'Active',
-                        isPrimary: false,
-                        onTap: onActiveJob,
-                      ),
+                    _SmallButton(
+                      label: 'Submit Bid',
+                      isPrimary: false,
+                      onTap: onActiveJob,
+                    ),
                   ],
                 ),
               ),
@@ -730,8 +681,7 @@ class _JobCard extends StatelessWidget {
             top: -2,
             right: 16,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
                 color: AppColors.darkAccent,
                 borderRadius: BorderRadius.circular(20),
@@ -784,23 +734,16 @@ class _SmallButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isPrimary
-              ? AppColors.darkPrimary
-              : Colors.transparent,
-          border: isPrimary
-              ? null
-              : Border.all(color: AppColors.darkBorder),
+          color: isPrimary ? AppColors.darkPrimary : Colors.transparent,
+          border: isPrimary ? null : Border.all(color: AppColors.darkBorder),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isPrimary
-                ? Colors.white
-                : AppColors.darkTextSecondary,
+            color: isPrimary ? Colors.white : AppColors.darkTextSecondary,
             fontFamily: 'DM Sans',
             fontSize: 12,
             fontWeight: FontWeight.w600,

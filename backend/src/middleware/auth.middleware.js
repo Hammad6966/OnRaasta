@@ -1,21 +1,16 @@
-const jwt = require('jsonwebtoken');
+const { authenticateAccessToken } = require('../services/access.service');
 
 /**
  * Extracts and verifies the Bearer token.
  * Attaches decoded payload to req.user on success.
  */
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ success: false, message: 'No token provided' });
-  }
-  const token = authHeader.split(' ')[1];
+const verifyToken = async (req, res, next) => {
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    const match = /^Bearer ([^\s]+)$/.exec(req.headers.authorization || '');
+    if (!match) return res.status(401).json({ success: false, message: 'Access token required' });
+    req.user = await authenticateAccessToken(match[1]);
     next();
-  } catch {
-    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
-  }
+  } catch (err) { next(err); }
 };
 
 /**

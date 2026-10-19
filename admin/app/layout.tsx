@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { browserClient, clearAdminSession } from '../lib/admin-api';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -62,6 +64,7 @@ function Sidebar() {
 
       {/* Footer */}
       <div className="px-6 py-4 border-t border-[#1E3A5F]">
+        <button className="text-sm mb-3" onClick={() => { clearAdminSession(); window.location.replace('/login'); }}>Sign out</button>
         <p className="text-[#94A3B8] text-xs">© 2025 OnRaasta</p>
       </div>
     </aside>
@@ -71,11 +74,28 @@ function Sidebar() {
 function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hideSidebar = NO_SIDEBAR.includes(pathname);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (hideSidebar) { setReady(false); return; }
+    const client = browserClient();
+    let timer: ReturnType<typeof setTimeout>;
+    const check = () => {
+      clearTimeout(timer);
+      const token = client.token();
+      if (!token) { clearAdminSession(); window.location.replace('/login'); return; }
+      setReady(true);
+      const expiry = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000;
+      timer = setTimeout(check, Math.max(1, expiry - Date.now()));
+    };
+    check(); window.addEventListener('focus', check);
+    return () => { clearTimeout(timer); window.removeEventListener('focus', check); };
+  }, [pathname, hideSidebar]);
 
   if (hideSidebar) {
     return <>{children}</>;
   }
 
+  if (!ready) return <p className="p-8">Checking administrative session...</p>;
   return (
     <>
       <Sidebar />

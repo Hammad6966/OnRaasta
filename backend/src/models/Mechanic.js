@@ -9,13 +9,21 @@ const mechanicSchema = new mongoose.Schema(
       unique: true,
     },
     skills:        { type: [String], default: [] },
-    serviceRadius: { type: Number, default: 15 },
+    serviceRadius: { type: Number, default: 15, min: 1, max: 100 },
     shopAddress:   { type: String },
     lat:           { type: Number },
     lng:           { type: Number },
     isOnline:      { type: Boolean, default: false },
     isApproved:    { type: Boolean, default: false },
-    rating:        { type: Number, default: 0 },
+    approval: {
+      status: { type: String, enum: ['pending', 'approved', 'rejected', 'revoked'], default: 'pending' },
+      method: { type: String, enum: ['manual_profile_review'] },
+      decidedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      decidedAt: Date,
+      reason: { type: String, maxlength: 500 },
+    },
+    rating:        { type: Number, default: 0, min: 0, max: 5 },
+    reviewCount:   { type: Number, default: 0, min: 0 },
     totalJobs:     { type: Number, default: 0 },
     earnings:      { type: Number, default: 0 },
     documents: {
@@ -34,4 +42,5 @@ const mechanicSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+mechanicSchema.index({ isApproved: 1, 'approval.status': 1, createdAt: -1, _id: -1 });
 module.exports = mongoose.model('Mechanic', mechanicSchema);

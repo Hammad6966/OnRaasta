@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Users,
   Wrench,
@@ -22,16 +22,7 @@ import {
   Legend,
 } from 'recharts';
 
-const API = 'http://localhost:5000/api/admin';
-
-function getToken() {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('admin_token');
-}
-
-function authHeaders(): HeadersInit {
-  return { Authorization: `Bearer ${getToken()}` };
-}
+import { adminRequest } from '../lib/admin-api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +33,7 @@ interface Stats {
   pendingVerifications: number;
   totalRevenue: number;
   newUsersToday: number;
+  bookedTotals: { grossMinor: string; commissionMinor: string; netMinor: string; completedJobs: number; unpricedJobs: number };
 }
 
 interface ChartPoint { day: string; jobs: number }
@@ -57,6 +49,10 @@ interface RecentJob {
 }
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
+
+function formatMinor(value: string) {
+  const n = BigInt(value); return `PKR ${(n / BigInt(100)).toLocaleString('en-PK')}.${String(n % BigInt(100)).padStart(2, '0')}`;
+}
 
 function KpiCard({
   label, value, trend, icon, iconColor,
@@ -117,6 +113,8 @@ const FAULT_COLORS = ['#2563EB', '#F97316', '#22C55E', '#EF4444', '#F59E0B', '#9
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const generation = useRef(0);
+  const [error, setError] = useState('');
   const [stats,      setStats]      = useState<Stats | null>(null);
   const [jobsChart,  setJobsChart]  = useState<ChartPoint[]>([]);
   const [faults,     setFaults]     = useState<FaultPoint[]>([]);
@@ -124,32 +122,24 @@ export default function DashboardPage() {
   const [loading,    setLoading]    = useState(true);
 
   const fetchAll = useCallback(async () => {
+    const current = ++generation.current;
     try {
-      const headers = authHeaders();
-      const [sRes, jRes, fRes, rRes] = await Promise.all([
-        fetch(`${API}/stats`,        { headers }),
-        fetch(`${API}/jobs-chart`,   { headers }),
-        fetch(`${API}/faults-chart`, { headers }),
-        fetch(`${API}/recent-jobs`,  { headers }),
-      ]);
+      setError('');
       const [s, j, f, r] = await Promise.all([
-        sRes.json(), jRes.json(), fRes.json(), rRes.json(),
+        adminRequest<{ data: Stats }>('/stats'), adminRequest<{ data: ChartPoint[] }>('/jobs-chart'),
+        adminRequest<{ data: FaultPoint[] }>('/faults-chart'), adminRequest<{ data: RecentJob[] }>('/recent-jobs'),
       ]);
-      if (s.success) setStats(s.data);
-      if (j.success) setJobsChart(j.data);
-      if (f.success) setFaults(f.data);
-      if (r.success) setRecentJobs(r.data);
-    } catch (err) {
-      console.error('Dashboard fetch:', err);
-    } finally {
-      setLoading(false);
-    }
+      if (current !== generation.current) return;
+      setStats(s.data); setJobsChart(j.data); setFaults(f.data); setRecentJobs(r.data);
+    } catch (e) {
+      if (current === generation.current) { setStats(null); setJobsChart([]); setFaults([]); setRecentJobs([]); setError(e instanceof Error ? e.message : 'Unable to load dashboard'); }
+    } finally { if (current === generation.current) setLoading(false); }
   }, []);
 
   useEffect(() => {
     fetchAll();
     const id = setInterval(fetchAll, 60_000);
-    return () => clearInterval(id);
+    return () => { generation.current++; clearInterval(id); };
   }, [fetchAll]);
 
   if (loading) {
@@ -172,17 +162,20 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {error && <p role="alert" className="text-red-400 mb-4">{error} <button className="underline" onClick={fetchAll}>Retry</button></p>}
+      <p className="text-[#94A3B8] mb-4">{stats ? `Completed jobs: ${stats.bookedTotals.completedJobs}; incomplete financial records excluded: ${stats.bookedTotals.unpricedJobs}` : 'Dashboard data unavailable'}</p>
+      {stats && <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4"><KpiCard label="Gross Booked Amount (not cash collected)" value={formatMinor(stats.bookedTotals.grossMinor)} icon={<Car size={24}/>} iconColor="#2563EB"/><KpiCard label="Booked Platform Commission (not collected)" value={formatMinor(stats.bookedTotals.commissionMinor)} icon={<Shield size={24}/>} iconColor="#F97316"/></div>}
       {/* KPI grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KpiCard
-          label="Total Users"
+          label="Registered Drivers"
           value={stats?.totalUsers ?? '—'}
           trend={stats ? `+${stats.newUsersToday} today` : undefined}
           icon={<Users size={24} />}
           iconColor="#2563EB"
         />
         <KpiCard
-          label="Active Mechanics"
+          label="Approved Eligible Mechanics"
           value={stats?.totalMechanics ?? '—'}
           icon={<Wrench size={24} />}
           iconColor="#F97316"
@@ -194,7 +187,7 @@ export default function DashboardPage() {
           iconColor="#22C55E"
         />
         <KpiCard
-          label="Pending Verifications"
+          label="Pending Profile Reviews"
           value={stats?.pendingVerifications ?? '—'}
           icon={<Shield size={24} />}
           iconColor="#F59E0B"
@@ -323,7 +316,7 @@ export default function DashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  {['Job ID', 'User', 'Status', 'Fault', 'Amount', 'Time'].map((h) => (
+                  {['Job ID', 'User', 'Status', 'Fault', 'Booked Amount', 'Time'].map((h) => (
                     <th
                       key={h}
                       className="text-left text-xs text-[#94A3B8] uppercase tracking-wider pb-3 pr-6 font-medium whitespace-nowrap"

@@ -1,0 +1,62 @@
+{
+  "version": "weighted_rules_v1",
+  "weights": {
+    "skillMatch": "0.35",
+    "distanceScore": "0.25",
+    "ratingScore": "0.25",
+    "priceScore": "0.15"
+  },
+  "distanceScaleKm": "15",
+  "priceScaleMinor": 5000000,
+  "faultSkills": {
+    "flat_tire": [
+      "Tyre Specialist",
+      "Tyre Change"
+    ],
+    "dead_battery": [
+      "Auto Electrician",
+      "Battery",
+      "Electrical"
+    ],
+    "engine_overheating": [
+      "Engine Specialist",
+      "Engine Repair"
+    ],
+    "oil_leak": [
+      "General Mechanic",
+      "Engine Specialist",
+      "Engine Repair"
+    ],
+    "brake_failure": [
+      "Brake Specialist",
+      "Brakes"
+    ],
+    "transmission_issue": [
+      "Transmission Specialist"
+    ],
+    "electrical_fault": [
+      "Auto Electrician",
+      "Electrical"
+    ],
+    "fuel_problem": [
+      "General Mechanic",
+      "Engine Repair"
+    ],
+    "ac_fault": [
+      "AC Specialist",
+      "AC Repair"
+    ],
+    "suspension_issue": [
+      "Suspension Specialist"
+    ],
+    "coolant_leak": [
+      "Engine Specialist",
+      "Engine Repair"
+    ],
+    "unknown": []
+  },
+  "aliases": {
+    "tire change": "tyre change",
+    "tire specialist": "tyre specialist"
+  }
+}

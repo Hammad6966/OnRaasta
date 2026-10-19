@@ -1,27 +1,15 @@
-// eslint-disable-next-line no-unused-vars
-const errorHandler = (err, req, res, next) => {
-  console.error('[Error]', err.message);
-
-  // Mongoose invalid ObjectId
-  if (err.name === 'CastError') {
-    return res.status(400).json({ success: false, message: `Invalid value for field: ${err.path}` });
+module.exports = (err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (['JsonWebTokenError', 'TokenExpiredError', 'NotBeforeError'].includes(err.name)) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
   }
-
-  // Mongoose schema validation failure
-  if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map((e) => e.message).join(', ');
-    return res.status(400).json({ success: false, message });
+  if (['CastError', 'ValidationError'].includes(err.name) || err.type === 'entity.parse.failed') {
+    return res.status(400).json({ success: false, message: 'Invalid request' });
   }
-
-  // MongoDB duplicate key
-  if (err.code === 11000) {
-    return res.status(409).json({ success: false, message: 'Phone number already registered' });
+  if (err.code === 11000) return res.status(409).json({ success: false, message: 'Conflicting or duplicate record' });
+  if (err.code === 20 || err.codeName === 'IllegalOperation') {
+    return res.status(503).json({ success: false, message: 'Transactional database unavailable' });
   }
-
-  return res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error',
-  });
+  const status = [400, 401, 403, 404, 409, 413, 429, 503].includes(err.status) ? err.status : 500;
+  res.status(status).json({ success: false, message: status === 500 ? 'Internal server error' : err.message, ...(['ACCESS_TOKEN_EXPIRED', 'ACCOUNT_UNAVAILABLE'].includes(err.publicCode) ? { code: err.publicCode } : {}) });
 };
-
-module.exports = errorHandler;

@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useRef, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
-const API = 'http://localhost:5000/api/admin';
+import { ADMIN_API as API, saveAdminSession } from '../../lib/admin-api';
 
 export default function LoginPage() {
   const router = useRouter();
+  const pending = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +20,9 @@ export default function LoginPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (pending.current) return;
+    pending.current = true;
+    const expectedSession = sessionStorage.getItem('admin_token');
     setError('');
     setLoading(true);
 
@@ -27,18 +33,20 @@ export default function LoginPage() {
         body:    JSON.stringify({ email, password }),
       });
       const data = await res.json();
+      if (!mounted.current || sessionStorage.getItem('admin_token') !== expectedSession) return;
 
       if (!res.ok || !data.success) {
         setError(data.message || 'Invalid credentials');
         return;
       }
 
-      localStorage.setItem('admin_token', data.token);
+      saveAdminSession(data.token);
       router.push('/');
     } catch {
-      setError('Server unreachable. Check that the backend is running.');
+      if (mounted.current) setError('Server unreachable. Check that the backend is running.');
     } finally {
-      setLoading(false);
+      pending.current = false;
+      if (mounted.current) setLoading(false);
     }
   }
 
@@ -123,7 +131,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-[#94A3B8] text-xs text-center mt-6">
-          Default: admin@onraasta.com / admin123
+          Authorized administrator access only.
         </p>
       </div>
     </div>

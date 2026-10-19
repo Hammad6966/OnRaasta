@@ -7,7 +7,6 @@ const getClient = () => twilio(
 
 const sendOtp = async (phone) => {
   if (process.env.NODE_ENV === 'development') {
-    console.log(`DEV MODE: OTP for +92${phone} is ${process.env.DEV_OTP}`);
     return { status: 'pending' };
   }
   return getClient().verify.v2
@@ -17,7 +16,8 @@ const sendOtp = async (phone) => {
 
 const verifyOtp = async (phone, code) => {
   if (process.env.NODE_ENV === 'development') {
-    return { status: code === process.env.DEV_OTP ? 'approved' : 'rejected' };
+    return { status: typeof code === 'string' && !!process.env.DEV_OTP &&
+      code === process.env.DEV_OTP ? 'approved' : 'rejected' };
   }
   return getClient().verify.v2
     .services(process.env.TWILIO_VERIFY_SERVICE_SID)

@@ -14,34 +14,24 @@ class DocumentUploadScreen extends StatefulWidget {
 
 class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
   final List<_DocItem> _docs = [
-    _DocItem(title: 'CNIC Front', subtitle: 'Clear photo of your CNIC front side', icon: Icons.credit_card),
-    _DocItem(title: 'CNIC Back', subtitle: 'Clear photo of your CNIC back side', icon: Icons.credit_card_outlined),
-    _DocItem(title: 'Workshop Permit', subtitle: 'Valid permit or registration document', icon: Icons.article_outlined),
+    _DocItem(
+        title: 'CNIC Front',
+        subtitle: 'Clear photo of your CNIC front side',
+        icon: Icons.credit_card),
+    _DocItem(
+        title: 'CNIC Back',
+        subtitle: 'Clear photo of your CNIC back side',
+        icon: Icons.credit_card_outlined),
+    _DocItem(
+        title: 'Workshop Permit',
+        subtitle: 'Valid permit or registration document',
+        icon: Icons.article_outlined),
   ];
 
   void _submit() {
-    final uploaded = _docs.where((d) => d.uploaded).length;
-    if (uploaded < _docs.length) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.darkError,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          content: Text('Please upload all documents first.',
-              style: GoogleFonts.dmSans(color: Colors.white)),
-        ),
-      );
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.darkSuccess,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Text('Documents submitted for review!',
-            style: GoogleFonts.dmSans(color: Colors.white)),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            'Document uploads are deferred. No documents have been uploaded or submitted.')));
   }
 
   @override
@@ -89,8 +79,8 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.darkPrimary.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: AppColors.darkPrimary.withOpacity(0.3)),
+                  border:
+                      Border.all(color: AppColors.darkPrimary.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
@@ -101,8 +91,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                       child: Text(
                         'Documents are reviewed within 24 hours. You\'ll be notified once approved.',
                         style: GoogleFonts.dmSans(
-                            fontSize: 12,
-                            color: const Color(0xFF94A3B8)),
+                            fontSize: 12, color: const Color(0xFF94A3B8)),
                       ),
                     ),
                   ],
@@ -119,17 +108,15 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                 child: Column(
                   children: [
                     ..._docs.asMap().entries.map((entry) {
-                      final i = entry.key;
                       final doc = entry.value;
                       return _UploadCard(
                         doc: doc,
-                        onTap: () => setState(() => _docs[i].uploaded = !_docs[i].uploaded),
+                        onTap: _submit,
                       );
                     }),
-
                     const SizedBox(height: 24),
-
-                    OnRaastaButton(label: 'Submit Documents', onPressed: _submit),
+                    OnRaastaButton(
+                        label: 'Submit Documents', onPressed: _submit),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -148,13 +135,12 @@ class _DocItem {
   final String title;
   final String subtitle;
   final IconData icon;
-  bool uploaded;
+  final bool uploaded = false;
 
   _DocItem({
     required this.title,
     required this.subtitle,
     required this.icon,
-    this.uploaded = false,
   });
 }
 
@@ -213,15 +199,14 @@ class _UploadCard extends StatelessWidget {
                             color: Colors.white)),
                     Text(doc.subtitle,
                         style: GoogleFonts.dmSans(
-                            fontSize: 12,
-                            color: const Color(0xFF94A3B8))),
+                            fontSize: 12, color: const Color(0xFF94A3B8))),
                   ],
                 ),
               ),
               if (doc.uploaded)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.darkSuccess.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -259,10 +244,10 @@ class _UploadCard extends StatelessWidget {
                           const Icon(Icons.image_rounded,
                               color: AppColors.darkSuccess, size: 20),
                           const SizedBox(width: 8),
-                          Text('document_${doc.title.replaceAll(' ', '_').toLowerCase()}.jpg',
+                          Text(
+                              'document_${doc.title.replaceAll(' ', '_').toLowerCase()}.jpg',
                               style: GoogleFonts.dmSans(
-                                  fontSize: 12,
-                                  color: AppColors.darkSuccess)),
+                                  fontSize: 12, color: AppColors.darkSuccess)),
                         ],
                       )
                     : Column(
@@ -271,7 +256,7 @@ class _UploadCard extends StatelessWidget {
                           const Icon(Icons.cloud_upload_outlined,
                               color: Color(0xFF94A3B8), size: 24),
                           const SizedBox(height: 6),
-                          Text('Tap to upload',
+                          Text('Upload unavailable',
                               style: GoogleFonts.dmSans(
                                   fontSize: 12,
                                   color: const Color(0xFF94A3B8))),

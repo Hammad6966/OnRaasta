@@ -1,10 +1,14 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/constants/api_constants.dart';
+import '../../models/bid_model.dart';
+import '../../models/booking_arguments.dart';
+import '../../providers/assignment_controller.dart';
+import '../../providers/job_tracking_publisher.dart';
+import '../../core/widgets/job_sharing_banner.dart';
+import '../../services/assignment_service.dart';
+import '../../services/socket_service.dart';
+import '../../core/widgets/assignment_state_banner.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/onraasta_button.dart';
 import '../../core/widgets/status_badge.dart';
@@ -14,93 +18,87 @@ import '../../core/widgets/status_badge.dart';
 const _stepKeys = ['en_route', 'arrived', 'in_progress', 'completed'];
 
 const _stepMeta = [
-  (label: 'En Route',    icon: Icons.directions_car_rounded),
-  (label: 'Arrived',     icon: Icons.location_on_rounded),
+  (label: 'En Route', icon: Icons.directions_car_rounded),
+  (label: 'Arrived', icon: Icons.location_on_rounded),
   (label: 'In Progress', icon: Icons.build_rounded),
-  (label: 'Completed',   icon: Icons.check_circle_rounded),
+  (label: 'Completed', icon: Icons.check_circle_rounded),
 ];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class ActiveJobScreen extends StatefulWidget {
-  final Map<String, dynamic> job;
+  final AcceptedBooking booking;
+  final AssignmentDetailController? controller;
+  final JobTrackingPublisher? tracking;
 
-  const ActiveJobScreen({super.key, required this.job});
+  const ActiveJobScreen(
+      {super.key, required this.booking, this.controller, this.tracking});
 
   @override
   State<ActiveJobScreen> createState() => _ActiveJobScreenState();
 }
 
-class _ActiveJobScreenState extends State<ActiveJobScreen> {
-  late String _currentStatus;
-  late int _stepIndex;
-  bool _isLoading = false;
-
+class _ActiveJobScreenState extends State<ActiveJobScreen>
+    with WidgetsBindingObserver {
+  late final AssignmentDetailController _assignment;
+  AcceptedBooking get _booking => _assignment.booking;
+  String get _currentStatus => _booking.job['status'] as String;
+  int get _stepIndex => _stepKeys.indexOf(_currentStatus);
+  bool get _isLoading => _assignment.updating;
   @override
   void initState() {
     super.initState();
-    _currentStatus = widget.job['status'] as String? ?? 'en_route';
-    _stepIndex = _stepKeys.indexOf(_currentStatus);
-    if (_stepIndex == -1) _stepIndex = 0;
+    WidgetsBinding.instance.addObserver(this);
+    _assignment = widget.controller ??
+        AssignmentDetailController(
+            booking: widget.booking,
+            socket: SocketService(),
+            load: AssignmentService.instance.load);
+    _assignment.addListener(_changed);
+    _assignment.reload();
   }
 
-  Future<void> _updateStatus(String newStatus) async {
-    setState(() => _isLoading = true);
-    try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'access_token');
-      final jobId = widget.job['_id'] as String? ??
-          widget.job['jobId'] as String? ?? '';
-
-      final dio = Dio();
-      await dio.patch(
-        '${ApiConstants.baseUrl}/jobs/$jobId/status',
-        data: {'status': newStatus},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      setState(() {
-        _currentStatus = newStatus;
-        _stepIndex = _stepKeys.indexOf(newStatus);
-      });
-
-      if (newStatus == 'completed') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Job completed! Great work 🎉',
-                style: GoogleFonts.dmSans()),
-            backgroundColor: AppColors.darkSuccess,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } on DioException catch (e) {
-      final msg =
-          (e.response?.data as Map?)?['message'] as String? ?? 'Update failed';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg, style: GoogleFonts.dmSans()),
-          backgroundColor: AppColors.darkError,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+  void _changed() {
+    if (mounted) {
+      if (_assignment.verified)
+        (widget.tracking ?? JobTrackingPublisher.current)
+            ?.observeAssignment(_booking);
+      setState(() {});
     }
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _assignment.reload();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _assignment.removeListener(_changed);
+    _assignment.dispose();
+    super.dispose();
+  }
+
+  Future<void> _updateStatus(String target) => _assignment.updateStatus(target);
+
+  @override
   Widget build(BuildContext context) {
     final description =
-        widget.job['description'] as String? ?? 'No description';
-    final aiDiagnosis =
-        widget.job['aiDiagnosis'] as Map<String, dynamic>?;
+        _booking.job['description'] as String? ?? 'No description';
+    final aiDiagnosis = _booking.job['aiDiagnosis'] as Map<String, dynamic>?;
     final faultClass =
         (aiDiagnosis?['fault_class'] as String? ?? '').replaceAll('_', ' ');
-    final totalCost = (widget.job['totalCost'] as num?)?.toInt() ?? 0;
-    final earnings  = (totalCost * 0.85).round();
-    final fee       = (totalCost * 0.15).round();
+    final totalCost = _booking.bid.totalCost!;
+    final earnings = money(totalCost * 0.85);
+    final fee = money(totalCost * 0.15);
 
+    if (_assignment.accessDenied) {
+      return Scaffold(
+          backgroundColor: AppColors.darkBg,
+          body:
+              SafeArea(child: AssignmentStateBanner(controller: _assignment)));
+    }
     return Scaffold(
       backgroundColor: AppColors.darkBg,
       body: Column(
@@ -109,8 +107,7 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
           SafeArea(
             bottom: false,
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   Text(
@@ -129,6 +126,10 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
           ),
 
           // ── Scrollable content ────────────────────────────────────────────────
+          AssignmentStateBanner(controller: _assignment),
+          JobSharingBanner(
+              publisher: widget.tracking ?? JobTrackingPublisher.current,
+              jobId: _booking.jobId),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -145,9 +146,9 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                       ),
                       child: Row(
                         children: List.generate(_stepMeta.length, (i) {
-                          final done   = i < _stepIndex;
+                          final done = i < _stepIndex;
                           final active = i == _stepIndex;
-                          final meta   = _stepMeta[i];
+                          final meta = _stepMeta[i];
                           final isLast = i == _stepMeta.length - 1;
 
                           return Expanded(
@@ -198,8 +199,7 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                                   Expanded(
                                     child: Container(
                                       height: 2,
-                                      margin:
-                                          const EdgeInsets.only(bottom: 22),
+                                      margin: const EdgeInsets.only(bottom: 22),
                                       color: done
                                           ? AppColors.darkSuccess
                                           : const Color(0xFF1E3A5F),
@@ -247,7 +247,8 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                                 ),
                               ),
                               Text(
-                                'OnRaasta User',
+                                textValue(_booking.driver['name']) ??
+                                    'Customer name unavailable',
                                 style: GoogleFonts.syne(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
@@ -263,8 +264,8 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0x2622C55E),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: const Color(0x4D22C55E)),
+                              border:
+                                  Border.all(color: const Color(0x4D22C55E)),
                             ),
                             child: const Icon(
                               Icons.phone,
@@ -308,8 +309,7 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                               color: const Color(0xFF94A3B8),
                             ),
                           ),
-                          if (aiDiagnosis != null &&
-                              faultClass.isNotEmpty) ...[
+                          if (aiDiagnosis != null && faultClass.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             Row(
                               children: [
@@ -359,7 +359,7 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                               ),
                               const Spacer(),
                               Text(
-                                'PKR $earnings',
+                                earnings,
                                 style: GoogleFonts.syne(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700,
@@ -368,6 +368,20 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                               ),
                             ],
                           ),
+                          Text(
+                              '${money(_booking.bid.labourCost)} labour + ${money(_booking.bid.partsCost)} parts',
+                              style: const TextStyle(
+                                  color: AppColors.darkTextSecondary)),
+                          Text(_booking.bid.priceLabel,
+                              key: const Key('agreed-total'),
+                              style:
+                                  const TextStyle(color: AppColors.darkAccent)),
+                          Text(
+                              _booking.bid.eta == null
+                                  ? 'ETA unavailable'
+                                  : 'Offer ETA: ${_booking.bid.eta} min',
+                              style: const TextStyle(
+                                  color: AppColors.darkTextSecondary)),
                           const SizedBox(height: 4),
                           Row(
                             children: [
@@ -380,7 +394,7 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                               ),
                               const Spacer(),
                               Text(
-                                'PKR $fee',
+                                fee,
                                 style: GoogleFonts.dmSans(
                                   fontSize: 12,
                                   color: AppColors.darkError,
@@ -401,8 +415,7 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
           Container(
             decoration: const BoxDecoration(
               color: AppColors.darkSurface,
-              border:
-                  Border(top: BorderSide(color: AppColors.darkBorder)),
+              border: Border(top: BorderSide(color: AppColors.darkBorder)),
             ),
             padding: const EdgeInsets.all(16),
             child: SafeArea(
@@ -416,7 +429,17 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
   }
 
   Widget _buildActionButton() {
+    if (!_assignment.verified || _assignment.loading || _assignment.updating) {
+      return OnRaastaButton(
+          label: 'Verifying saved job',
+          isLoading: _assignment.loading || _assignment.updating,
+          isDisabled: true,
+          onPressed: null);
+    }
     switch (_currentStatus) {
+      case 'accepted':
+        return OnRaastaButton(
+            label: 'Start travel', onPressed: () => _updateStatus('en_route'));
       case 'en_route':
         return OnRaastaButton(
           label: "I've Arrived →",
@@ -436,8 +459,12 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
           onPressed: () => _updateStatus('completed'),
         );
       default:
-        return const OnRaastaButton(
-          label: 'Job Completed ✓',
+        return OnRaastaButton(
+          label: _currentStatus == 'completed'
+              ? 'Job Completed'
+              : _currentStatus == 'cancelled'
+                  ? 'Job Cancelled'
+                  : 'Job unavailable',
           isPrimary: false,
           isDisabled: true,
           onPressed: null,

@@ -1,11 +1,16 @@
+import '../../models/history_models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../services/api_service.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../models/bid_model.dart';
+import '../../providers/opportunity_controller.dart';
+import '../../services/assignment_service.dart';
+import '../../services/socket_service.dart';
+import '../../core/widgets/opportunity_banner.dart';
 import '../../core/widgets/onraasta_input.dart';
-import '../../core/constants/api_constants.dart';
 import 'mechanic_home_screen.dart';
 
 class SubmitBidScreen extends StatefulWidget {
@@ -20,20 +25,38 @@ class SubmitBidScreen extends StatefulWidget {
 class _SubmitBidScreenState extends State<SubmitBidScreen> {
   final _formKey = GlobalKey<FormState>();
   final _labourController = TextEditingController();
-  final _partsController  = TextEditingController();
-  final _etaController    = TextEditingController();
+  final _partsController = TextEditingController();
+  final _etaController = TextEditingController();
 
   bool _isSubmitting = false;
 
+  late final OpportunityController _opportunity;
+  @override
+  void initState() {
+    super.initState();
+    _opportunity = OpportunityController(
+        jobId: objectId(widget.job['_id'] ?? widget.job['jobId']) ?? '',
+        socket: SocketService(),
+        load: AssignmentService.instance.isOpen);
+    _opportunity.addListener(_changed);
+    _opportunity.refresh();
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
   // Derived values
-  int _labour     = 0;
-  int _parts      = 0;
-  int _total      = 0;
+  int _labour = 0;
+  int _parts = 0;
+  int _total = 0;
   int _commission = 0;
-  int _earnings   = 0;
+  int _earnings = 0;
 
   @override
   void dispose() {
+    _opportunity.removeListener(_changed);
+    _opportunity.dispose();
     _labourController.dispose();
     _partsController.dispose();
     _etaController.dispose();
@@ -43,50 +66,43 @@ class _SubmitBidScreenState extends State<SubmitBidScreen> {
   void _recalculate() {
     final l = int.tryParse(_labourController.text) ?? 0;
     final p = int.tryParse(_partsController.text) ?? 0;
-    final t = l + p;
+    final valid = l >= 0 && l <= 100000000 && p >= 0 && p <= 100000000;
+    final t = valid ? l + p : 0;
     setState(() {
-      _labour     = l;
-      _parts      = p;
-      _total      = t;
-      _commission = (t * 0.15).round();
-      _earnings   = t - (t * 0.15).round();
+      _labour = l;
+      _parts = p;
+      _total = t;
+      _commission = commissionPaisa(t * 100);
+      _earnings = t * 100 - _commission;
     });
   }
 
   Future<void> _submitBid() async {
-    if (!_formKey.currentState!.validate()) return;
-
+    if (_isSubmitting ||
+        !_opportunity.canBid ||
+        !(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
     setState(() => _isSubmitting = true);
-
     try {
-      final storage = const FlutterSecureStorage();
-      final token = await storage.read(key: 'access_token');
-      if (token == null || token.isEmpty) {
-        if (!mounted) return;
-        context.go('/login');
-        return;
-      }
-
-      final jobId = widget.job['_id'] as String? ??
-          widget.job['jobId'] as String? ?? '';
-
-      final dio = Dio(BaseOptions(
-        baseUrl: ApiConstants.baseUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
-      ));
-
-      await dio.post('/bids', data: {
-        'jobId':      jobId,
+      await _opportunity.refresh();
+      if (!mounted || !_opportunity.canBid) return;
+      final jobId = _opportunity.jobId;
+      final response = await ApiService.instance.dio.post('/bids', data: {
+        'jobId': jobId,
         'labourCost': _labour,
-        'partsCost':  _parts,
-        'totalCost':  _total,
-        'eta':        int.tryParse(_etaController.text) ?? 30,
+        'partsCost': _parts,
+        'totalCost': _total,
+        'eta': int.parse(_etaController.text),
       });
+      final envelope = objectMap(response.data);
+      final bid = BidModel.fromJson(envelope['bid']);
+      if (envelope['success'] != true ||
+          bid.jobId != jobId ||
+          bid.status != 'pending' ||
+          !bid.hasValidPrice) {
+        throw const FormatException();
+      }
 
       if (!mounted) return;
 
@@ -101,14 +117,32 @@ class _SubmitBidScreenState extends State<SubmitBidScreen> {
       context.go('/mechanic-home');
     } on DioException catch (e) {
       if (!mounted) return;
-      final msg = (e.response?.data as Map?)?['message'] as String? ??
-          'Failed to submit bid. Please try again.';
+      final status = e.response?.statusCode;
+      if (status == 401) {
+        context.go('/login');
+        return;
+      }
+      if ([403, 404, 409].contains(status)) _opportunity.close();
+      final msg = switch (status) {
+        403 =>
+          'Bidding is not permitted. Check your approval and reload requests.',
+        404 => 'This job is no longer available.',
+        409 => 'This job cannot accept another bid. Reload your requests.',
+        _ => 'Failed to submit bid. Check your connection and retry.'
+      };
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
           backgroundColor: AppColors.darkError,
         ),
       );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Bid confirmation could not be read. Reload requests before trying again.'),
+            backgroundColor: AppColors.darkError));
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -123,6 +157,7 @@ class _SubmitBidScreenState extends State<SubmitBidScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            OpportunityBanner(controller: _opportunity),
             // ── Top bar ──────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -193,7 +228,7 @@ class _SubmitBidScreenState extends State<SubmitBidScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${request.distance.toStringAsFixed(1)} km',
+                      request.distanceLabel,
                       style: const TextStyle(
                         color: AppColors.darkTextSecondary,
                         fontFamily: 'DM Sans',
@@ -228,6 +263,9 @@ class _SubmitBidScreenState extends State<SubmitBidScreen> {
                           if (n == null || n < 500) {
                             return 'Minimum labour cost is PKR 500';
                           }
+                          if (n > 100000000) {
+                            return 'Labour cost exceeds the supported limit';
+                          }
                           return null;
                         },
                       ),
@@ -245,7 +283,9 @@ class _SubmitBidScreenState extends State<SubmitBidScreen> {
                         onChanged: (_) => _recalculate(),
                         validator: (v) {
                           final n = int.tryParse(v ?? '');
-                          if (v != null && v.isNotEmpty && n == null) {
+                          if (v != null &&
+                              v.isNotEmpty &&
+                              (n == null || n < 0 || n > 100000000)) {
                             return 'Enter a valid amount';
                           }
                           return null;
@@ -276,11 +316,11 @@ class _SubmitBidScreenState extends State<SubmitBidScreen> {
                       // ── Cost breakdown card ──────────────────────────────────
                       if (_total > 0) ...[
                         _CostBreakdown(
-                          labour:     _labour,
-                          parts:      _parts,
-                          total:      _total,
+                          labour: _labour,
+                          parts: _parts,
+                          total: _total,
                           commission: _commission,
-                          earnings:   _earnings,
+                          earnings: _earnings,
                         ),
                         const SizedBox(height: 24),
                       ],
@@ -300,7 +340,8 @@ class _SubmitBidScreenState extends State<SubmitBidScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitBid,
+                  onPressed:
+                      _isSubmitting || !_opportunity.canBid ? null : _submitBid,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.darkPrimary,
                     disabledBackgroundColor:
@@ -395,20 +436,22 @@ class _CostBreakdown extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          _BreakdownRow(label: 'Labour',   value: labour,     color: Colors.white),
+          _BreakdownRow(label: 'Labour', value: labour, color: Colors.white),
           const SizedBox(height: 8),
-          _BreakdownRow(label: 'Parts',    value: parts,      color: Colors.white),
+          _BreakdownRow(label: 'Parts', value: parts, color: Colors.white),
 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Divider(color: AppColors.darkBorder, height: 1),
           ),
 
-          _BreakdownRow(label: 'Total',    value: total,      color: Colors.white,         bold: true),
+          _BreakdownRow(
+              label: 'Total', value: total, color: Colors.white, bold: true),
           const SizedBox(height: 8),
           _BreakdownRow(
             label: 'Platform Fee (15%)',
             value: commission,
+            minorUnits: true,
             color: AppColors.darkError,
           ),
 
@@ -429,7 +472,7 @@ class _CostBreakdown extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Your Earnings',
+                  'Estimated Net',
                   style: TextStyle(
                     color: AppColors.darkSuccess,
                     fontFamily: 'DM Sans',
@@ -438,7 +481,7 @@ class _CostBreakdown extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'PKR ${earnings.toString()}',
+                  pkr(earnings),
                   style: const TextStyle(
                     color: AppColors.darkSuccess,
                     fontFamily: 'Syne',
@@ -458,6 +501,7 @@ class _CostBreakdown extends StatelessWidget {
 class _BreakdownRow extends StatelessWidget {
   final String label;
   final int value;
+  final bool minorUnits;
   final Color color;
   final bool bold;
 
@@ -466,6 +510,7 @@ class _BreakdownRow extends StatelessWidget {
     required this.value,
     required this.color,
     this.bold = false,
+    this.minorUnits = false,
   });
 
   @override
@@ -483,7 +528,7 @@ class _BreakdownRow extends StatelessWidget {
           ),
         ),
         Text(
-          'PKR $value',
+          pkr(minorUnits ? value : value * 100),
           style: TextStyle(
             color: color,
             fontFamily: 'DM Sans',

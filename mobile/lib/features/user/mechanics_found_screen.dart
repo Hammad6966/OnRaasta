@@ -1,235 +1,146 @@
-import 'dart:async';
-
-import 'package:dio/dio.dart';
+import '../../models/recommendation.dart';
+import '../../providers/recommendation_controller.dart';
+import '../../services/ai_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/onraasta_button.dart';
 import '../../core/widgets/skill_chip.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../services/auth_service.dart';
 
-import '../../services/api_service.dart';
+import '../../models/bid_model.dart';
+import '../../models/booking_arguments.dart';
+import '../../providers/job_provider.dart';
+import '../../services/bidding_service.dart';
 import '../../services/socket_service.dart';
 
 // ── Model ─────────────────────────────────────────────────────────────────────
 
-class BidCard {
-  final String bidId;
-  final String mechanicId;
-  final String mechanicName;
-  final int totalCost;
-  final int labourCost;
-  final int partsCost;
-  final int eta;
-  final double rating;
-  final String distance;
-  final List<String> skills;
-  bool isNew;
-  final String status;
-
-  BidCard({
-    required this.bidId,
-    required this.mechanicId,
-    required this.mechanicName,
-    required this.totalCost,
-    required this.labourCost,
-    required this.partsCost,
-    required this.eta,
-    required this.rating,
-    required this.distance,
-    required this.skills,
-    this.isNew = false,
-    required this.status,
-  });
-
-  BidCard copyWith({bool? isNew}) {
-    return BidCard(
-      bidId:        bidId,
-      mechanicId:   mechanicId,
-      mechanicName: mechanicName,
-      totalCost:    totalCost,
-      labourCost:   labourCost,
-      partsCost:    partsCost,
-      eta:          eta,
-      rating:       rating,
-      distance:     distance,
-      skills:       skills,
-      isNew:        isNew ?? this.isNew,
-      status:       status,
-    );
-  }
-
-  factory BidCard.fromJson(Map<String, dynamic> json) {
-    final mechanic = json['mechanic'] as Map<String, dynamic>? ?? {};
-    final user = mechanic['userId'] as Map<String, dynamic>?;
-    final name = user?['name'] as String? ??
-        mechanic['name'] as String? ??
-        json['mechanicName'] as String? ??
-        'Mechanic';
-
-    final skillsRaw = mechanic['skills'] as List? ?? json['skills'] as List? ?? [];
-    final skills = skillsRaw.map((s) => s.toString()).toList();
-
-    final dist = mechanic['distance'] as num? ?? json['distance'] as num? ?? 0;
-    final distStr = '${dist.toStringAsFixed(1)} km';
-
-    return BidCard(
-      bidId:      json['_id'] as String?         ?? json['bidId'] as String? ?? '',
-      mechanicId: json['mechanicId'] as String?  ?? mechanic['_id'] as String? ?? '',
-      mechanicName: name,
-      totalCost:  (json['totalCost']  as num?)?.toInt() ?? 0,
-      labourCost: (json['labourCost'] as num?)?.toInt() ?? 0,
-      partsCost:  (json['partsCost']  as num?)?.toInt() ?? 0,
-      eta:        (json['eta']        as num?)?.toInt() ?? 0,
-      rating:     (mechanic['rating'] as num?)?.toDouble() ?? 0.0,
-      distance:   distStr,
-      skills:     skills,
-      isNew:      json['isNew'] as bool? ?? false,
-      status:     json['status'] as String? ?? 'pending',
-    );
-  }
-}
-
-// ── Screen ────────────────────────────────────────────────────────────────────
-
 class MechanicsFoundScreen extends StatefulWidget {
   final Map<String, dynamic> job;
 
-  const MechanicsFoundScreen({super.key, required this.job});
+  const MechanicsFoundScreen(
+      {super.key, required this.job, this.bidding, this.ai});
+  final BiddingService? bidding;
+  final AiService? ai;
 
   @override
   State<MechanicsFoundScreen> createState() => _MechanicsFoundScreenState();
 }
 
-class _MechanicsFoundScreenState extends State<MechanicsFoundScreen> {
-  final List<BidCard> _bids = [];
+class _MechanicsFoundScreenState extends State<MechanicsFoundScreen>
+    with WidgetsBindingObserver {
+  late final JobBidsController _controller;
+  late final RecommendationController _recommendations;
+  BiddingService get _bidding => widget.bidding ?? BiddingService.instance;
+  List<BidModel> get _bids => _controller.bids;
   int _selectedTab = 0;
   bool _isAccepting = false;
-
   static const _tabLabels = ['Recommended', 'Cheapest', 'Fastest'];
 
-  List<BidCard> get _sortedBids {
-    final copy = List<BidCard>.from(_bids);
-    switch (_selectedTab) {
-      case 1:
-        copy.sort((a, b) => a.totalCost.compareTo(b.totalCost));
-      case 2:
-        copy.sort((a, b) => a.eta.compareTo(b.eta));
-      default:
-        copy.sort((a, b) => b.rating.compareTo(a.rating));
-    }
-    return copy;
-  }
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────────
+  List<BidModel> get _sortedBids =>
+      sortedOffers(_bids, _selectedTab, _recommendations.rankings);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _recommendations = RecommendationController(
+        jobId: objectId(widget.job['_id']) ?? '',
+        load: (widget.ai ?? AiService.instance).recommendations)
+      ..addListener(_rankingUpdated);
+    _controller = JobBidsController(
+        jobId: objectId(widget.job['_id']) ?? '', load: _bidding.loadBids);
+    _controller.addListener(_updated);
+    SocketService().on('bid:new', _onBid);
+    SocketService().on('job:status_changed', _onStatus);
+    SocketService().on('bid:accepted', _onStatus);
+    SocketService().on('connect', _onReconnect);
     _connectSocket();
-    _loadExistingBids();
+    _controller.refresh();
+  }
+
+  void _updated() {
+    _recommendations.updateBids(_controller.bids);
+    if (mounted) setState(() {});
+  }
+
+  void _rankingUpdated() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _refreshAll() async {
+    await _controller.refresh();
+    if (mounted && _bids.any((b) => b.canAccept)) {
+      await _recommendations.refresh();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshAll();
+  }
+
+  void _onReconnect(dynamic _) => _refreshAll();
+  void _onBid(dynamic data) => _controller.receive(data);
+  void _onStatus(dynamic data) {
+    if (objectId(objectMap(data)['jobId']) == _controller.jobId) {
+      _recommendations.invalidate();
+      _refreshAll();
+    }
+  }
+
+  Future<void> _connectSocket() async {
+    final token = await AuthService.instance.getAccessToken();
+    if (mounted && token != null && token.isNotEmpty) {
+      SocketService().connect(token);
+    }
+    // R02 joins the authenticated personal room on the server.
   }
 
   @override
   void dispose() {
-    SocketService().off('bid:new');
+    SocketService().off('bid:new', _onBid);
+    SocketService().off('job:status_changed', _onStatus);
+    SocketService().off('bid:accepted', _onStatus);
+    SocketService().off('connect', _onReconnect);
+    WidgetsBinding.instance.removeObserver(this);
+    _recommendations.removeListener(_rankingUpdated);
+    _recommendations.dispose();
+    _controller.removeListener(_updated);
+    _controller.dispose();
     super.dispose();
   }
 
-  // ── Socket ────────────────────────────────────────────────────────────────────
-
-  Future<void> _connectSocket() async {
-    final storage = const FlutterSecureStorage();
-    final userId = await storage.read(key: 'user_id');
-    final token = await storage.read(key: 'access_token');
-    print('DEBUG userId: $userId');
-
-    // Connect socket with token
-    SocketService().connect(token ?? '');
-
-    // Give the connection time to establish before joining room
-    await Future.delayed(const Duration(milliseconds: 500));
-    SocketService().emit('join_room', {'room': 'user_$userId'});
-    print('DEBUG: Emitted join_room for user_$userId');
-
-    SocketService().on('bid:new', (data) {
-      print('DEBUG bid:new received: $data');
-      if (!mounted) return;
-      setState(() {
-        final newBid = BidCard(
-          bidId:        data['bidId']?.toString() ?? '',
-          mechanicId:   data['mechanicId']?.toString() ?? '',
-          mechanicName: data['mechanicName']?.toString() ?? 'Mechanic',
-          totalCost:    (data['totalCost']  as num?)?.toInt() ?? 0,
-          labourCost:   (data['labourCost'] as num?)?.toInt() ?? 0,
-          partsCost:    (data['partsCost']  as num?)?.toInt() ?? 0,
-          eta:          (data['eta']        as num?)?.toInt() ?? 15,
-          rating:       (data['rating']     as num?)?.toDouble() ?? 0.0,
-          distance:     '2.5 km',
-          skills:       List<String>.from(data['skills'] ?? ['General Mechanic']),
-          isNew:        true,
-          status:       'pending',
-        );
-        _bids.insert(0, newBid);
-      });
-
-      // Clear "NEW" badge after 30 s
-      Future.delayed(const Duration(seconds: 30), () {
-        if (!mounted) return;
-        setState(() {
-          final index = _bids.indexWhere((b) => b.bidId == data['bidId']?.toString());
-          if (index != -1) _bids[index] = _bids[index].copyWith(isNew: false);
-        });
-      });
-    });
+  Future<void> _viewProfile(BidModel bid) async {
+    await context.push('/mechanic-profile',
+        extra: BidSelection(job: widget.job, bid: bid));
+    if (mounted) _refreshAll();
   }
 
-  // ── Load bids ─────────────────────────────────────────────────────────────────
-
-  Future<void> _loadExistingBids() async {
-    final jobId = widget.job['_id'] as String? ?? '';
-    if (jobId.isEmpty) return;
-    try {
-      final res = await ApiService.instance.dio.get(
-        '/bids',
-        queryParameters: {'jobId': jobId},
-      );
-      final list = (res.data['data'] as List?) ?? [];
-      setState(() {
-        _bids.addAll(list.map(
-          (e) => BidCard.fromJson(Map<String, dynamic>.from(e as Map)),
-        ));
-      });
-    } on DioException catch (_) {
-      // silent — socket will deliver incoming bids
-    }
-  }
-
-  // ── Accept bid ────────────────────────────────────────────────────────────────
-
-  Future<void> _acceptBid(BidCard bid) async {
+  Future<void> _acceptBid(BidModel bid) async {
+    if (_isAccepting) return;
     setState(() => _isAccepting = true);
     try {
-      await ApiService.instance.dio.patch('/bids/${bid.bidId}/accept');
+      final booking =
+          await _bidding.accept(BidSelection(job: widget.job, bid: bid));
+      if (!mounted || booking == null) return;
+      await context.push('/live-tracking', extra: booking);
+      if (mounted) _controller.refresh();
+    } on BidFlowException catch (e) {
       if (!mounted) return;
-      context.go('/live-tracking', extra: {
-        'job': widget.job,
-        'bid': bid,
-      });
-    } on DioException catch (e) {
-      if (!mounted) return;
-      final msg = e.response?.data?['message'] as String? ??
-          'Failed to accept bid. Please try again.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.darkError),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message), backgroundColor: AppColors.darkError));
+      if (e.statusCode == 401) {
+        context.go('/login');
+      } else {
+        _controller.refresh();
+      }
     } finally {
       if (mounted) setState(() => _isAccepting = false);
     }
   }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────────
 
   String _initials(String name) {
     final parts = name.trim().split(' ').where((p) => p.isNotEmpty).toList();
@@ -244,39 +155,12 @@ class _MechanicsFoundScreenState extends State<MechanicsFoundScreen> {
   @override
   Widget build(BuildContext context) {
     final sorted = _sortedBids;
+    final ranked = {
+      for (final rank in _recommendations.rankings) rank.bidId: rank
+    };
 
     return Scaffold(
       backgroundColor: AppColors.darkBg,
-      // ── DEV ONLY: test mechanic profile ──────────────────────────────────────
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 220),
-        child: FloatingActionButton.small(
-          heroTag: 'test_profile',
-          backgroundColor: AppColors.darkSurface,
-          onPressed: () => context.push('/mechanic-profile', extra: {
-            'bidId':        'test123',
-            '_id':          'test123',
-            'mechanicName': 'Ali Hassan',
-            'totalCost':    1500,
-            'labourCost':   1000,
-            'partsCost':    500,
-            'eta':          15,
-            'rating':       4.5,
-            'totalJobs':    47,
-            'skills':       ['General Mechanic', 'Engine Specialist'],
-          }),
-          child: const Text(
-            'P',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'Syne',
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -324,6 +208,11 @@ class _MechanicsFoundScreenState extends State<MechanicsFoundScreen> {
                       ),
                     ],
                   ),
+                  const Spacer(),
+                  IconButton(
+                      tooltip: 'Refresh bids',
+                      onPressed: _refreshAll,
+                      icon: const Icon(Icons.refresh, color: Colors.white)),
                 ],
               ),
             ),
@@ -370,23 +259,62 @@ class _MechanicsFoundScreenState extends State<MechanicsFoundScreen> {
           ),
 
           // ── Bids list / empty state ──────────────────────────────────────────
+          if (_selectedTab == 0 && _bids.isNotEmpty)
+            Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          _recommendations.loading
+                              ? 'Calculating ranking. Offers remain available in bid ID order.'
+                              : _recommendations.error ??
+                                  (_recommendations.rankings.isEmpty
+                                      ? 'No eligible offers ranked. Offers shown in bid ID order.'
+                                      : 'Weighted recommendation rules: skill, straight-line distance, rating and price. Unranked offers follow in bid ID order.'),
+                          style: TextStyle(
+                              color: _recommendations.error == null
+                                  ? AppColors.darkTextSecondary
+                                  : AppColors.darkWarning,
+                              fontSize: 12)),
+                      if (_recommendations.truncated)
+                        const Text(
+                            'Ranking covers a bounded candidate snapshot; additional offers may be unranked.',
+                            style: TextStyle(
+                                color: AppColors.darkTextSecondary,
+                                fontSize: 12)),
+                      if (!_recommendations.loading)
+                        TextButton(
+                            onPressed: _recommendations.refresh,
+                            child: const Text('Retry Ranking')),
+                    ])),
+          if (_controller.loading) const LinearProgressIndicator(),
+          if (_controller.error != null)
+            Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(_controller.error!,
+                    style: const TextStyle(color: AppColors.darkError))),
           Expanded(
             child: sorted.isEmpty
-                ? const _EmptyState()
+                ? _controller.loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _EmptyState(onRefresh: _controller.refresh)
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     itemCount: sorted.length,
-                    itemBuilder: (_, index) =>
-                        _BidCard(
-                          bid: sorted[index],
-                          isAccepting: _isAccepting,
-                          initials: _initials(sorted[index].mechanicName),
-                          onAccept: () => _acceptBid(sorted[index]),
-                          onViewProfile: () => context.push(
-                            '/mechanic-profile',
-                            extra: sorted[index],
-                          ),
-                        ),
+                    itemBuilder: (_, index) => _BidCard(
+                      bid: sorted[index],
+                      recommendation: ranked[sorted[index].bidId],
+                      explain: _selectedTab == 0,
+                      isAccepting: _isAccepting,
+                      initials: _initials(sorted[index].mechanicName),
+                      onAccept: sorted[index].canAccept ||
+                              sorted[index].status == 'accepted'
+                          ? () => _acceptBid(sorted[index])
+                          : null,
+                      onViewProfile: () => _viewProfile(sorted[index]),
+                    ),
                   ),
           ),
         ],
@@ -398,14 +326,18 @@ class _MechanicsFoundScreenState extends State<MechanicsFoundScreen> {
 // ── Bid card widget ───────────────────────────────────────────────────────────
 
 class _BidCard extends StatelessWidget {
-  final BidCard bid;
+  final BidModel bid;
+  final Recommendation? recommendation;
+  final bool explain;
   final bool isAccepting;
   final String initials;
-  final VoidCallback onAccept;
+  final VoidCallback? onAccept;
   final VoidCallback onViewProfile;
 
   const _BidCard({
     required this.bid,
+    this.recommendation,
+    this.explain = false,
     required this.isAccepting,
     required this.initials,
     required this.onAccept,
@@ -414,7 +346,8 @@ class _BidCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleSkills = bid.skills.take(2).toList();
+    final visibleSkills =
+        (recommendation?.skills ?? bid.skills).take(2).toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -467,21 +400,10 @@ class _BidCard extends StatelessWidget {
                             color: AppColors.darkAccent, size: 14),
                         const SizedBox(width: 3),
                         Text(
-                          bid.rating.toStringAsFixed(1),
-                          style: const TextStyle(
-                            color: AppColors.darkTextSecondary,
-                            fontFamily: 'DM Sans',
-                            fontSize: 13,
-                          ),
-                        ),
-                        const Text(
-                          ' • ',
-                          style: TextStyle(
-                              color: AppColors.darkTextSecondary,
-                              fontSize: 13),
-                        ),
-                        Text(
-                          bid.distance,
+                          recommendation == null
+                              ? bid.ratingLabel
+                              : recommendation!.rating?.toStringAsFixed(1) ??
+                                  'Unrated',
                           style: const TextStyle(
                             color: AppColors.darkTextSecondary,
                             fontFamily: 'DM Sans',
@@ -529,7 +451,7 @@ class _BidCard extends StatelessWidget {
                     ),
                   const SizedBox(height: 4),
                   Text(
-                    'PKR ${bid.totalCost}',
+                    bid.priceLabel,
                     style: const TextStyle(
                       color: AppColors.darkAccent,
                       fontFamily: 'Syne',
@@ -538,7 +460,7 @@ class _BidCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'ETA ${bid.eta} min',
+                    bid.etaLabel,
                     style: const TextStyle(
                       color: AppColors.darkTextSecondary,
                       fontFamily: 'DM Sans',
@@ -550,6 +472,17 @@ class _BidCard extends StatelessWidget {
             ],
           ),
 
+          if (recommendation != null) ...[
+            const SizedBox(height: 8),
+            Text(
+                '${recommendation!.distanceKm.toStringAsFixed(2)} km straight-line (presence snapshot)',
+                style: const TextStyle(
+                    color: AppColors.darkTextSecondary, fontSize: 12)),
+            if (explain)
+              Text(recommendation!.explanation,
+                  style: const TextStyle(
+                      color: AppColors.darkTextSecondary, fontSize: 12)),
+          ],
           const SizedBox(height: 12),
           const Divider(color: AppColors.darkBorder, height: 1),
           const SizedBox(height: 12),
@@ -567,7 +500,11 @@ class _BidCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: OnRaastaButton(
-                  label: 'Accept Bid',
+                  label: bid.status == 'accepted'
+                      ? 'View Booking'
+                      : bid.status == 'pending'
+                          ? 'Accept Bid'
+                          : bid.status ?? 'Unavailable',
                   isLoading: isAccepting,
                   onPressed: onAccept,
                 ),
@@ -583,35 +520,15 @@ class _BidCard extends StatelessWidget {
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
+  final VoidCallback onRefresh;
+  const _EmptyState({required this.onRefresh});
   @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(color: AppColors.darkPrimary),
-          SizedBox(height: 16),
-          Text(
-            'Waiting for mechanics...',
+  Widget build(BuildContext context) => Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('No bids yet. New offers will appear here.',
+            textAlign: TextAlign.center,
             style: TextStyle(
-              color: AppColors.darkTextSecondary,
-              fontFamily: 'DM Sans',
-              fontSize: 14,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Nearby mechanics are being notified',
-            style: TextStyle(
-              color: AppColors.darkTextSecondary,
-              fontFamily: 'DM Sans',
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+                color: AppColors.darkTextSecondary, fontFamily: 'DM Sans')),
+        TextButton(onPressed: onRefresh, child: const Text('Refresh bids')),
+      ]));
 }

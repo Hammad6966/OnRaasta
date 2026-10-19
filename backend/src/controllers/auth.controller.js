@@ -1,23 +1,10 @@
 const bcrypt   = require('bcryptjs');
-const jwt      = require('jsonwebtoken');
+const sessions = require('../services/refresh-session.service');
 const User     = require('../models/User');
 const Mechanic = require('../models/Mechanic');
 const { sendOtp, verifyOtp: verifyOtpService } = require('../services/twilio.service');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-const generateTokens = (user) => ({
-  accessToken: jwt.sign(
-    { id: user._id, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: '15m' },
-  ),
-  refreshToken: jwt.sign(
-    { id: user._id, role: user.role },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: '7d' },
-  ),
-});
 
 const userPayload = (user) => ({
   id:    user._id,
@@ -34,9 +21,15 @@ const userPayload = (user) => ({
  */
 const register = async (req, res, next) => {
   try {
+    if (req.body.role !== undefined && !['user', 'mechanic'].includes(req.body.role)) {
+      return res.status(400).json({ success: false, message: 'Invalid registration role' });
+    }
     const existing = await User.findOne({ phone: req.body.phone });
 
     if (existing) {
+      if (existing.role === 'admin' || !existing.isActive) {
+        return res.status(403).json({ success: false, message: 'Registration not permitted for this account' });
+      }
       if (existing.isVerified === true) {
         return res.status(409).json({
           success: false,
@@ -46,7 +39,8 @@ const register = async (req, res, next) => {
         // User exists but not verified - update password and resend OTP
         existing.passwordHash = await bcrypt.hash(req.body.password, 12);
         existing.role = req.body.role || 'user';
-        existing.name = req.body.name;
+        existing.name = req.body.name.trim();
+        if (req.body.email !== undefined) existing.email = req.body.email.trim().toLowerCase();
         await existing.save();
         await sendOtp(req.body.phone);
         return res.status(201).json({
@@ -59,7 +53,8 @@ const register = async (req, res, next) => {
     // New user
     const passwordHash = await bcrypt.hash(req.body.password, 12);
     const user = new User({
-      name: req.body.name,
+      name: req.body.name.trim(),
+      ...(req.body.email !== undefined ? { email: req.body.email.trim().toLowerCase() } : {}),
       phone: req.body.phone,
       passwordHash,
       role: req.body.role || 'user',
@@ -82,14 +77,15 @@ const register = async (req, res, next) => {
  */
 const verifyOtp = async (req, res, next) => {
   try {
-    console.log('verifyOtp body:', req.body);
     const { phone, otp, code } = req.body;
     const otpCode = otp || code;
-    console.log('phone:', phone, 'otpCode:', otpCode, 'DEV_OTP:', process.env.DEV_OTP);
 
     const user = await User.findOne({ phone });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (!user.isActive || user.role === 'admin') {
+      return res.status(403).json({ success: false, message: 'OTP login not permitted' });
     }
 
     const result = await verifyOtpService(phone, otpCode);
@@ -118,7 +114,7 @@ const verifyOtp = async (req, res, next) => {
       }
     }
 
-    const { accessToken, refreshToken } = generateTokens(user);
+    const { accessToken, refreshToken } = await sessions.issue(user);
 
     return res.status(200).json({
       success: true,
@@ -144,7 +140,7 @@ const login = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Account not found' });
     }
 
-    if (!user.isActive) {
+    if (!user.isActive || user.role === 'admin') {
       return res.status(403).json({ success: false, message: 'Account has been deactivated' });
     }
 
@@ -167,7 +163,7 @@ const login = async (req, res, next) => {
     user.lockoutUntil = undefined;
     await user.save();
 
-    const { accessToken, refreshToken } = generateTokens(user);
+    const { accessToken, refreshToken } = await sessions.issue(user);
 
     return res.status(200).json({
       success: true,
@@ -186,24 +182,8 @@ const login = async (req, res, next) => {
  */
 const refresh = async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
-    if (!refreshToken) {
-      return res.status(400).json({ success: false, message: 'Refresh token required' });
-    }
-
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user    = await User.findById(decoded.id);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    const accessToken = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '15m' },
-    );
-
-    return res.status(200).json({ success: true, accessToken });
+    const tokens = await sessions.rotate(req.body.refreshToken);
+    return res.json({ success: true, ...tokens });
   } catch (err) {
     next(err);
   }
@@ -220,6 +200,9 @@ const resendOtp = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+    if (!user.isActive || user.role === 'admin') {
+      return res.status(403).json({ success: false, message: 'OTP not permitted' });
+    }
     await sendOtp(phone);
     return res.status(200).json({ success: true, message: `OTP resent to +92${phone}` });
   } catch (err) {
@@ -227,4 +210,13 @@ const resendOtp = async (req, res, next) => {
   }
 };
 
-module.exports = { register, verifyOtp, login, refresh, resendOtp };
+const logout = async (req, res, next) => {
+  try { await sessions.revoke(req.body.refreshToken); res.json({ success: true }); } catch (err) { next(err); }
+};
+const session = async (req, res, next) => {
+  try { if (req.user.role !== 'admin' && !req.user.sid) return res.status(401).json({ success: false, message: 'Sign in to initialize a secure session' });
+    const user = await User.findById(req.user.id);
+    if (!user || !user.isActive || !user.isVerified || user.role !== req.user.role) return res.status(403).json({ success: false, message: 'Account is no longer eligible' });
+    res.json({ success: true, user: sessions.publicUser(user) }); } catch (err) { next(err); }
+};
+module.exports = { register, verifyOtp, login, refresh, resendOtp, logout, session };

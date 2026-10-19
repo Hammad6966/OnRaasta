@@ -1,11 +1,10 @@
 const express = require('express');
-const { verifyToken } = require('../middleware/auth.middleware');
+const { verifyToken, verifyRole } = require('../middleware/auth.middleware');
+const v = require('../middleware/request-validation');
 const { createBid, acceptBid, getBidsByJob } = require('../controllers/bids.controller');
-
 const router = express.Router();
-
-router.post('/',             verifyToken, createBid);
-router.patch('/:id/accept',  verifyToken, acceptBid);
-router.get('/',              verifyToken, getBidsByJob);
-
+router.use(verifyToken);
+router.post('/', verifyRole('mechanic'), v.bid, createBid);
+router.patch('/:id/accept', verifyRole('user'), v.id, v.accept, acceptBid);
+router.get('/', v.bidQuery, getBidsByJob);
 module.exports = router;
