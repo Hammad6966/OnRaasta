@@ -203,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => context.go('/role-selection'),
+                      onTap: () => context.push('/role-selection'),
                       child: Text(
                         'Sign Up',
                         style: GoogleFonts.dmSans(

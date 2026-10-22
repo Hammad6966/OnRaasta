@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/theme/dark_theme.dart';
+import 'core/navigation/app_back_button_dispatcher.dart';
+import 'core/widgets/home_tab_scaffold.dart';
 import 'core/theme/light_theme.dart';
 import 'features/auth/splash_screen.dart';
 import 'features/auth/role_selection_screen.dart';
@@ -197,15 +199,8 @@ final _router = GoRouter(
 
 // ── User home wrapper (bottom nav shell) ─────────────────────────────────────
 
-class UserHomeWrapper extends StatefulWidget {
+class UserHomeWrapper extends StatelessWidget {
   const UserHomeWrapper({super.key});
-
-  @override
-  State<UserHomeWrapper> createState() => _UserHomeWrapperState();
-}
-
-class _UserHomeWrapperState extends State<UserHomeWrapper> {
-  int _currentIndex = 0;
 
   static const _pages = <Widget>[
     UserHomeScreen(),
@@ -215,32 +210,26 @@ class _UserHomeWrapperState extends State<UserHomeWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const HomeTabScaffold(
       backgroundColor: AppColors.darkBg,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
-        backgroundColor: AppColors.darkSurface,
-        selectedItemColor: AppColors.darkPrimary,
-        unselectedItemColor: AppColors.darkTextSecondary,
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded), label: 'Home'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.history_rounded), label: 'History'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded), label: 'Profile'),
-        ],
-      ),
+      pages: _pages,
+      navigationColor: AppColors.darkSurface,
+      selectedColor: AppColors.darkPrimary,
+      unselectedColor: AppColors.darkTextSecondary,
+      items: [
+        BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.history_rounded), label: 'History'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded), label: 'Profile'),
+      ],
     );
   }
 }
 
 // ── App root ─────────────────────────────────────────────────────────────────
+
+final _backButtonDispatcher = AppBackButtonDispatcher(_router);
 
 class OnRaastaApp extends ConsumerWidget {
   const OnRaastaApp({super.key});
@@ -255,7 +244,10 @@ class OnRaastaApp extends ConsumerWidget {
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: themeMode,
-      routerConfig: _router,
+      routerDelegate: _router.routerDelegate,
+      routeInformationParser: _router.routeInformationParser,
+      routeInformationProvider: _router.routeInformationProvider,
+      backButtonDispatcher: _backButtonDispatcher,
     );
   }
 }

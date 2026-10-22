@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/home_tab_scaffold.dart';
 import '../../models/job_request.dart';
 export '../../models/job_request.dart' show JobRequest;
 import '../../providers/mechanic_presence_controller.dart';
@@ -800,15 +801,8 @@ class _EmptyState extends StatelessWidget {
 
 // ── Mechanic home wrapper (bottom nav shell) ──────────────────────────────────
 
-class MechanicHomeWrapper extends StatefulWidget {
+class MechanicHomeWrapper extends StatelessWidget {
   const MechanicHomeWrapper({super.key});
-
-  @override
-  State<MechanicHomeWrapper> createState() => _MechanicHomeWrapperState();
-}
-
-class _MechanicHomeWrapperState extends State<MechanicHomeWrapper> {
-  int _currentIndex = 0;
 
   static const _pages = <Widget>[
     MechanicHomeScreen(),
@@ -818,33 +812,26 @@ class _MechanicHomeWrapperState extends State<MechanicHomeWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const HomeTabScaffold(
       backgroundColor: AppColors.darkBg,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
-        backgroundColor: const Color(0xFF0F2040),
-        selectedItemColor: AppColors.darkAccent,
-        unselectedItemColor: const Color(0xFF94A3B8),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.payments_rounded),
-            label: 'Earnings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      pages: _pages,
+      navigationColor: const Color(0xFF0F2040),
+      selectedColor: AppColors.darkAccent,
+      unselectedColor: const Color(0xFF94A3B8),
+      items: [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home_rounded),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.payments_rounded),
+          label: 'Earnings',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_rounded),
+          label: 'Profile',
+        ),
+      ],
     );
   }
 }

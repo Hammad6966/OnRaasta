@@ -277,7 +277,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => context.go('/login'),
+                      onTap: () => context.push('/login'),
                       child: Text(
                         'Sign In',
                         style: GoogleFonts.dmSans(

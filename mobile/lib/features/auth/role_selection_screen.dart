@@ -169,9 +169,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     final buttonLabel = switch (_selectedRole) {
-      'user'     => 'Continue as Driver →',
+      'user' => 'Continue as Driver →',
       'mechanic' => 'Continue as Mechanic →',
-      _          => 'Select a role to continue',
+      _ => 'Select a role to continue',
     };
 
     return Scaffold(
@@ -274,9 +274,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   isDisabled: _selectedRole == null,
                   onPressed: () {
                     if (_selectedRole == 'user') {
-                      context.go('/signup', extra: 'user');
+                      context.push('/signup', extra: 'user');
                     } else if (_selectedRole == 'mechanic') {
-                      context.go('/signup', extra: 'mechanic');
+                      context.push('/signup', extra: 'mechanic');
                     }
                   },
                 ),
