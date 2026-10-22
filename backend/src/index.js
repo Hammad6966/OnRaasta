@@ -18,6 +18,9 @@ async function connectWithRetry(attempt = 1) {
       const AdminLog = require('./models/AdminLog');
       await AdminLog.createCollection();
       await AdminLog.createIndexes();
+      const DocumentReview = require('./models/DocumentReview');
+      await DocumentReview.createCollection();
+      await DocumentReview.createIndexes();
       // Socket startup includes expired-location cleanup writes. Never run it
       // against the application database during read-only infrastructure probes.
       initSocket(server);
@@ -30,6 +33,3 @@ async function connectWithRetry(attempt = 1) {
   }
 }
 connectWithRetry();
-      const DocumentReview = require('./models/DocumentReview');
-      await DocumentReview.createCollection();
-      await DocumentReview.createIndexes();
