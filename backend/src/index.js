@@ -27,9 +27,17 @@ async function connectWithRetry(attempt = 1) {
     }
     const port = process.env.PORT || 5000;
     server.listen(port, process.env.HOST || '0.0.0.0', () => console.log(`OnRaasta backend running on port ${port}${readOnly ? ' (read-only verification)' : ''}`));
-  } catch {
-    if (attempt < 5) setTimeout(() => connectWithRetry(attempt + 1), 5000);
-    else { console.error('Database connection or required index setup failed'); process.exit(1); }
+  } catch (err) {
+    console.error(`Startup attempt ${attempt} failed:`);
+    console.error('Error:', err.message);
+    console.error('Error code:', err.code || 'N/A');
+
+    if (attempt < 5) {
+      setTimeout(() => connectWithRetry(attempt + 1), 5000);
+    } else {
+      console.error('Backend startup failed after 5 attempts.');
+      process.exit(1);
+    }
   }
 }
 connectWithRetry();
