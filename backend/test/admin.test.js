@@ -77,8 +77,8 @@ test('malformed mutations and actor/credential mass assignment rejected', async 
 test('pending mechanic approved manually without promoting missing documents', async () => {
   const r = await decide(ids.unapproved, 'approve'); assert.equal(r.status, 200);
   assert.equal(r.body.data.isApproved, true); assert.equal(r.body.data.accountApprovalStatus, 'approved');
-  assert.equal(r.body.data.documents.status, 'pending'); assert.equal(r.body.data.documents.evidenceAvailable, false);
-  assert.equal(r.body.data.documents.verificationAvailable, false);
+  assert.equal(r.body.data.documents.status, 'draft'); assert.equal(r.body.data.documents.evidenceAvailable, false);
+  assert.equal(r.body.data.documents.verificationAvailable, true);
   assert.equal(r.body.data.approval.method, 'manual_profile_review'); assert.equal(r.body.data.approval.decidedBy, ids.admin);
   assert.equal(f.data().AdminLog[0].targetId, ids.unapproved);
 });

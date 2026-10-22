@@ -25,7 +25,7 @@ class OnRaastaCard extends StatelessWidget {
         padding: padding ?? const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.darkSurface,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: borderColor ?? AppColors.darkBorder),
           boxShadow: showShadow
               ? [

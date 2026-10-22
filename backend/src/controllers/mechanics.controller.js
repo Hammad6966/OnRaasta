@@ -41,8 +41,8 @@ const getOpenRequests = async (req, res, next) => {
 const getProfile = async (req, res, next) => {
   try {
     const mechanic = await Mechanic.findOne({ userId: req.user.id })
-      .select('userId skills serviceRadius shopAddress isApproved rating reviewCount totalJobs documents.status documents.rejectionReason approval')
-      .populate('userId', 'name phone email role');
+      .select('userId skills serviceRadius shopAddress isApproved rating reviewCount totalJobs documents.status documents.rejectionReason verification.status verification.reason approval')
+      .populate('userId', 'name phone email role photo');
 
     if (!mechanic) {
       return res.status(404).json({ success: false, message: 'Mechanic profile not found' });

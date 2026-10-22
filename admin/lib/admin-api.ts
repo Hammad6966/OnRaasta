@@ -17,7 +17,7 @@ export function createAdminClient(storage: Store, send: typeof fetch, unauthoriz
     if (!value || expiresAt(value) <= now()) { clear(); return null; }
     return value;
   };
-  async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  async function request<T>(path: string, options: RequestInit = {}, binary = false): Promise<T> {
     const expected = token();
     if (!expected) { unauthorized(); throw new AdminApiError('Session expired. Sign in again.', 401); }
     const result = await send(ADMIN_API + path, { ...options, cache: 'no-store', headers: { 'Content-Type': 'application/json', ...options.headers, Authorization: `Bearer ${expected}` } });
@@ -25,9 +25,9 @@ export function createAdminClient(storage: Store, send: typeof fetch, unauthoriz
     if (result.status === 401 || result.status === 403) {
       clear(); unauthorized(); throw new AdminApiError('Administrative access expired or unavailable. Sign in again.', result.status);
     }
-    const body = await result.json();
+    const body = binary && result.ok ? await result.blob() : await result.json();
     if (storage.getItem('admin_token') !== expected) throw new AdminApiError('Session changed. Reload this page.', 401);
-    if (!result.ok || !body.success) throw new AdminApiError(body.message || 'Request failed. Please retry.', result.status);
+    if (!result.ok || !binary && !body.success) throw new AdminApiError(body.message || 'Request failed. Please retry.', result.status);
     return body as T;
   }
   return { request, token, clear };
@@ -44,3 +44,4 @@ export function browserClient() {
   return createAdminClient(sessionStorage, fetch, () => { clearAdminSession(); window.location.replace('/login'); });
 }
 export function adminRequest<T>(path: string, options?: RequestInit) { return browserClient().request<T>(path, options); }
+export function adminBlob(path: string) { return browserClient().request<Blob>(path, {}, true); }

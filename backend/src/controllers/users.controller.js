@@ -3,7 +3,7 @@ const User = require('../models/User');
 const Vehicle = require('../models/Vehicle');
 const Job = require('../models/Job');
 const fail = require('../utils/http-error');
-const fields = 'name email phone role isVerified createdAt vehicleIds emergencyContacts';
+const fields = 'name email phone role isVerified createdAt vehicleIds emergencyContacts photo';
 exports.getProfile = async (req, res, next) => {
   try { const user = await User.findById(req.user.id).select(fields);
     if (!user) throw fail(404, 'Account not found');

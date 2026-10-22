@@ -23,6 +23,9 @@ dependencies:
   shimmer: ^3.0.0
   google_fonts: ^6.2.1
   permission_handler: ^11.3.1
+  file_picker: ^11.0.3
+  open_filex: ^5.0.0
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:

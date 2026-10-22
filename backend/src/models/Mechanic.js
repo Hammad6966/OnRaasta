@@ -26,6 +26,21 @@ const mechanicSchema = new mongoose.Schema(
     reviewCount:   { type: Number, default: 0, min: 0 },
     totalJobs:     { type: Number, default: 0 },
     earnings:      { type: Number, default: 0 },
+    verification: {
+      status: { type: String, enum: ['draft', 'submitted', 'verified', 'rejected'], default: 'draft' },
+      revision: { type: Number, default: 0 },
+      licenseApplicable: { type: Boolean, default: false },
+      workshopApplicable: { type: Boolean, default: false },
+      permitNumber: { type: String, maxlength: 80 },
+      submittedAt: Date,
+      reviewedAt: Date,
+      reason: { type: String, maxlength: 500 },
+      files: [{
+        kind: { type: String, enum: ['cnic_front', 'cnic_back', 'license', 'certificate', 'workshop'], required: true },
+        fileId: { type: mongoose.Schema.Types.ObjectId, required: true },
+        name: String, mime: String, size: Number, uploadedAt: Date,
+      }],
+    },
     documents: {
       cnic_front:      { type: String },
       cnic_back:       { type: String },

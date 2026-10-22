@@ -60,7 +60,9 @@ String profileError(Object error) {
   if (error is DioException) {
     switch (error.response?.statusCode) {
       case 400:
-        return 'Check the entered details and try again.';
+        return objectMap(error.response?.data)['message'] as String? ?? 'Check the entered details and try again.';
+      case 413:
+        return 'File exceeds 8 MB. Choose a smaller file.';
       case 401:
         return 'Please sign in again.';
       case 403:

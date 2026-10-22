@@ -15,7 +15,9 @@ function safeMechanic(m) {
     shopAddress: m.shopAddress, rating: m.rating, reviewCount: m.reviewCount, isApproved: m.isApproved,
     accountApprovalStatus: approvalStatus(m), revision: m.__v || 0, createdAt: m.createdAt, updatedAt: m.updatedAt,
     approval: m.approval ? { method: m.approval.method, decidedAt: m.approval.decidedAt, decidedBy: m.approval.decidedBy, reason: m.approval.reason } : null,
-    documents: { status: m.documents?.status || 'pending', evidenceAvailable: Boolean(m.documents?.cnic_front && m.documents?.cnic_back), verificationAvailable: false } };
+    documents: { status: m.verification?.status || 'draft', evidenceAvailable: Boolean(m.verification?.files?.length), verificationAvailable: true,
+      submittedAt: m.verification?.submittedAt, revision: m.verification?.revision || 0,
+      submittedKinds: (m.verification?.files || []).map(f => f.kind) } };
 }
 const version = doc => doc.__v === undefined ? { $exists: false } : doc.__v;
 function options(q, allowed = []) {
@@ -142,7 +144,7 @@ async function accountStatus(req, res, next) {
 async function decide(req, res, next) {
   try {
     mutation(req.body, ['action', 'reason', 'expectedVersion']);
-    if (!['approve', 'reject', 'revoke'].includes(req.body.action)) throw fail(400, 'Invalid approval action; document verification is deferred');
+    if (!['approve', 'reject', 'revoke'].includes(req.body.action)) throw fail(400, 'Invalid account approval action');
     const m = await transaction(async session => {
       await actorLock(req, session);
       const previous = await Mechanic.findById(req.params.mechanicId).session(session);
@@ -152,6 +154,7 @@ async function decide(req, res, next) {
       if (!user) throw fail(404, 'Mechanic account not found');
       const before = approvalStatus(previous), action = req.body.action;
       if (action === 'approve' && (!user.isActive || !user.isVerified)) throw fail(409, 'An active verified mechanic account is required');
+      if (action === 'approve' && previous.verification?.revision > 0 && previous.verification.status !== 'verified') throw fail(409, 'Review and verify the submitted documents before account approval');
       if (action === 'approve' && before === 'approved' || action === 'reject' && before !== 'pending' || action === 'revoke' && before !== 'approved') throw fail(409, 'Invalid approval transition; refresh application');
       const status = { approve: 'approved', reject: 'rejected', revoke: 'revoked' }[action];
       const updated = await Mechanic.findOneAndUpdate({ _id: previous._id, __v: version(previous) }, { $set: {
@@ -180,4 +183,4 @@ async function logs(req, res, next) {
     res.json({ success: true, data, pagination: pagination(o, total) });
   } catch (e) { next(e); }
 }
-module.exports = { listUsers, detail, applications, decide, accountStatus, logs, safeUser, safeMechanic, approvalStatus, applicationCounts };
+module.exports = { listUsers, detail, applications, decide, accountStatus, logs, safeUser, safeMechanic, approvalStatus, applicationCounts, actorLock };

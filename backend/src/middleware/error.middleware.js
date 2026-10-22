@@ -1,5 +1,6 @@
 module.exports = (err, req, res, next) => {
   if (res.headersSent) return next(err);
+  if (err.name === 'MulterError') return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ success: false, message: err.code === 'LIMIT_FILE_SIZE' ? 'File exceeds the 8 MB limit' : 'Upload one file using the file field' });
   if (['JsonWebTokenError', 'TokenExpiredError', 'NotBeforeError'].includes(err.name)) {
     return res.status(401).json({ success: false, message: 'Invalid or expired token' });
   }

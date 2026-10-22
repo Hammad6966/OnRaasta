@@ -55,6 +55,10 @@ router.post('/login', authLimiter, v.adminLogin, async (req, res) => {
 
 // ── GET /api/admin/stats ─────────────────────────────────────── (admin only) ─────
 router.use(...adminOnly);
+const documents = require('../services/documents.service');
+router.get('/verification/:mechanicId/documents', v.mechanicId, documents.get);
+router.post('/verification/:mechanicId/documents/review', v.mechanicId, documents.review);
+router.get('/documents/:id', v.id, require('../services/media.service').privateFile);
 
 router.get('/stats', async (req, res) => {
   try {

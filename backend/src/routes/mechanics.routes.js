@@ -4,6 +4,13 @@ const { verifyToken, verifyRole } = require('../middleware/auth.middleware');
 const v = require('../middleware/request-validation');
 
 const router = express.Router();
+const documents = require('../services/documents.service');
+const media = require('../services/media.service');
+const owner = [verifyToken, verifyRole('mechanic')];
+router.get('/documents', ...owner, documents.get);
+router.post('/documents/submit', ...owner, documents.submit);
+router.post('/documents/:kind', ...owner, media.upload, documents.upload);
+router.get('/documents/files/:id', verifyToken, verifyRole('mechanic', 'admin'), media.privateFile);
 
 // Validated public discovery; only safe live-presence fields are returned.
 // Public — no auth required

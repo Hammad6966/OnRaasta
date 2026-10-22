@@ -1,6 +1,6 @@
 // Controlled query/transaction fixtures. These never connect to a database.
 const mongoose = require('mongoose');
-const models = Object.fromEntries(['User', 'Mechanic', 'Job', 'Bid', 'Vehicle', 'RefreshSession', 'AdminLog'].map(name => [name, require(`../src/models/${name}`)]));
+const models = Object.fromEntries(['User', 'Mechanic', 'Job', 'Bid', 'Vehicle', 'RefreshSession', 'AdminLog', 'DocumentReview'].map(name => [name, require(`../src/models/${name}`)]));
 const ids = Object.fromEntries(['driver', 'foreign', 'mechanicUser', 'otherMechanicUser', 'unapprovedUser', 'admin',
   'mechanic', 'otherMechanic', 'unapproved', 'job', 'otherJob', 'bid', 'otherBid', 'vehicle'].map((k, i) => [k, (i + 1).toString(16).padStart(24, '0')]));
 let db;
@@ -89,7 +89,7 @@ function reset(hash) {
       { _id: ids.unapproved, userId: ids.unapprovedUser, isApproved: false, rating: 0, skills: [] },
     ],
     Job: [{ _id: ids.job, userId: ids.driver, status: 'bidding', description: 'Battery failure', location: { lat: 31, lng: 74 } }],
-    AdminLog: [], RefreshSession: [], Bid: [], Vehicle: [{ _id: ids.vehicle, userId: ids.driver, plate: 'TEST' }],
+    DocumentReview: [], AdminLog: [], RefreshSession: [], Bid: [], Vehicle: [{ _id: ids.vehicle, userId: ids.driver, plate: 'TEST' }],
   };
   nextId = 100;
 }

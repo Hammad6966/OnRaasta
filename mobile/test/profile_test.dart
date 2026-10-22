@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:onraasta/providers/profile_controller.dart';
 import 'package:onraasta/services/profile_service.dart';
+import 'package:onraasta/services/media_service.dart';
 import 'package:onraasta/services/auth_service.dart';
 import 'package:onraasta/features/user/user_profile_screen.dart';
 import 'package:onraasta/features/mechanic/mechanic_profile_edit.dart';
@@ -22,6 +23,11 @@ Map<String, dynamic> account() => {
       'isVerified': true,
       'emergencyContacts': <dynamic>[]
     };
+
+class UnavailableMedia extends MediaService {
+  @override
+  Future<Map<String, dynamic>> documents() async => throw Exception('offline');
+}
 
 class Profiles extends ProfileService {
   Map<String, dynamic> saved = account();
@@ -284,8 +290,7 @@ void main() {
     expect(find.text('Approval rejected or revoked - contact support'),
         findsOneWidget);
     expect(find.text('Pending approval'), findsNothing);
-    expect(
-        find.text('Document and photo uploads are deferred.'), findsOneWidget);
+    expect(find.text('Documents & Verification'), findsOneWidget);
   });
   testWidgets('mechanic save persists actual entered values', (tester) async {
     await tester.pumpWidget(
@@ -326,15 +331,15 @@ void main() {
     expect(find.text('Retain Me'), findsOneWidget);
     expect(find.text('Network unavailable. Retry.'), findsOneWidget);
   });
-  testWidgets('deferred documents cannot report fake upload or success',
+  testWidgets(
+      'unavailable documents backend cannot report fake upload or success',
       (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: DocumentUploadScreen()));
+    await tester.pumpWidget(
+        MaterialApp(home: DocumentUploadScreen(service: UnavailableMedia())));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Upload unavailable').first);
-    await tester.pump();
-    expect(
-        find.textContaining('No documents have been uploaded'), findsOneWidget);
-    expect(find.text('Documents submitted for review!'), findsNothing);
+    expect(find.text('Reload documents'), findsOneWidget);
+    expect(find.text('Documents submitted for review.'), findsNothing);
+    expect(find.text('Submit for review'), findsNothing);
     expect(find.text('Uploaded'), findsNothing);
   });
   testWidgets('driver account edit waits for backend and reloads saved name',

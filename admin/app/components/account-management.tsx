@@ -1,4 +1,5 @@
 'use client';
+import DocumentReview from './document-review';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { adminRequest, AdminApiError } from '../../lib/admin-api';
 import type { Account, Mechanic, Listing, AuditLog } from '../../lib/types';
@@ -64,8 +65,8 @@ export default function AccountManagement({ verification = false }: { verificati
   const mechanic = selected && verification ? selected as Mechanic : selected ? (selected as Account).mechanic : null;
   const account = selected && verification ? (selected as Mechanic).user : selected as Account | null;
   return <div>
-    <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>{verification ? 'Mechanic Approval' : 'Users & Mechanics'}</h1>
-    {verification && <p className="my-3 text-[#94A3B8]">Manual profile review only. Document uploads and document verification are unavailable. Account approval does not verify CNIC evidence.</p>}
+    <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>{verification ? 'Document Verification & Approval' : 'Users & Mechanics'}</h1>
+    {verification && <p className="my-3 text-[#94A3B8]">Review identity and qualification documents, then decide account approval. Each action is recorded separately.</p>}
     {verification && <div className="flex gap-4 my-4 text-[#94A3B8]">{['pending', 'approved', 'rejected', 'revoked'].map(s => <span key={s}>{s}: {counts[s] ?? 'Unavailable'}</span>)}</div>}
     <form className="flex flex-wrap gap-3 my-6" onSubmit={e => { e.preventDefault(); setPage(1); setQuery(search.trim()); }}>
       <input aria-label="Search accounts" className={input} placeholder="Name, email or phone prefix" maxLength={80} value={search} onChange={e => setSearch(e.target.value)} />
@@ -77,10 +78,10 @@ export default function AccountManagement({ verification = false }: { verificati
     {error && <div role="alert" className="my-4 text-red-400">{error}<button className="ml-3 underline" onClick={load}>Retry</button></div>}
     {notice && <p role="status" className="my-4 text-green-400">{notice}</p>}
     <div className="bg-[#0F2040] border border-[#1E3A5F] rounded-2xl p-5 overflow-x-auto">
-      {loading ? <p>Loading...</p> : rows.length === 0 ? <p className="text-[#94A3B8]">No matching accounts.</p> : <table className="w-full text-sm text-left"><thead className="text-[#94A3B8]"><tr><th>Name</th><th>Role</th><th>Account</th><th>Approval</th><th>Actions</th></tr></thead><tbody>{rows.map(row => {
+      {loading ? <p>Loading...</p> : rows.length === 0 ? <p className="text-[#94A3B8]">No matching accounts.</p> : <table className="w-full text-sm text-left"><thead className="text-[#94A3B8]"><tr><th>Name</th><th>Role</th><th>Account</th><th>Approval</th>{verification && <th>Documents</th>}<th>Actions</th></tr></thead><tbody>{rows.map(row => {
         const a = verification ? (row as Mechanic).user! : row as Account;
         const m = verification ? row as Mechanic : a.mechanic;
-        return <tr key={row._id} className="border-t border-[#1E3A5F]"><td className="py-4">{a.name}<div className="text-[#94A3B8]">{a.phone}</div></td><td>{a.role === 'user' ? 'Driver' : 'Mechanic'}</td><td>{a.isActive ? 'Active' : 'Suspended'}</td><td>{m?.accountApprovalStatus || 'Not applicable'}</td><td><button className={button} disabled={saving} onClick={() => open(row)}>View details</button></td></tr>;
+        return <tr key={row._id} className="border-t border-[#1E3A5F]"><td className="py-4">{a.name}<div className="text-[#94A3B8]">{a.phone}</div></td><td>{a.role === 'user' ? 'Driver' : 'Mechanic'}</td><td>{a.isActive ? 'Active' : 'Suspended'}</td><td>{m?.accountApprovalStatus || 'Not applicable'}</td>{verification && <td><div>{m?.documents.status}</div><div className="text-xs text-[#94A3B8]">{m?.documents.submittedKinds?.length || 0} / 5 sections uploaded</div></td>}<td><button className={button} disabled={saving} onClick={() => open(row)}>View details</button></td></tr>;
       })}</tbody></table>}
     </div>
     <div className="flex items-center gap-4 my-4"><button className={button} disabled={page === 1 || loading} onClick={() => setPage(p => p - 1)}>Previous</button><span>Page {page} | {total} records</span><button className={button} disabled={page * 20 >= total || loading} onClick={() => setPage(p => p + 1)}>Next</button></div>
@@ -88,9 +89,10 @@ export default function AccountManagement({ verification = false }: { verificati
       <button className="float-right underline" disabled={saving} onClick={() => { detailSequence.current++; setSelected(null); }}>Close</button>
       <h2 className="text-xl font-bold mb-4">{account?.name}</h2>
       <p>{account?.phone} | {account?.email || 'No email'}</p><p className="text-[#94A3B8]">Phone verified: {account?.isVerified ? 'Yes' : 'No'} | Created: {date(account?.createdAt)}</p>
-      {mechanic && <div className="my-4 space-y-2"><p>Skills: {mechanic.skills.join(', ') || 'None recorded'}</p><p>Radius: {mechanic.serviceRadius} km | Address: {mechanic.shopAddress || 'Unavailable'}</p><p>Application created: {date(mechanic.createdAt)} | Updated: {date(mechanic.updatedAt)}</p><p>Account approval: {mechanic.accountApprovalStatus}</p><p>Document record: {mechanic.documents.status}; {mechanic.documents.evidenceAvailable ? 'existing evidence references recorded' : 'no complete CNIC evidence recorded'}. Document review is deferred.</p>{mechanic.approval?.method && <p>Manual profile decision: {date(mechanic.approval.decidedAt)} | {mechanic.approval.reason}</p>}</div>}
+      {mechanic && <div className="my-4 space-y-2"><p>Skills: {mechanic.skills.join(', ') || 'None recorded'}</p><p>Radius: {mechanic.serviceRadius} km | Address: {mechanic.shopAddress || 'Unavailable'}</p><p>Application created: {date(mechanic.createdAt)} | Updated: {date(mechanic.updatedAt)}</p><p>Account approval: {mechanic.accountApprovalStatus}</p><p>Document record: {mechanic.documents.status}; {mechanic.documents.evidenceAvailable ? 'existing evidence references recorded' : 'no complete CNIC evidence recorded'}. Document review and account approval are separate decisions.</p>{mechanic.approval?.method && <p>Manual profile decision: {date(mechanic.approval.decidedAt)} | {mechanic.approval.reason}</p>}</div>}
+      {mechanic && <DocumentReview mechanicId={mechanic._id} onReviewed={() => { if (selected) open(selected); load(); }} />}
       <form onSubmit={submit} className="my-5 space-y-3">
-        <label className="block">Action <select required className={input} value={action} disabled={saving} onChange={e => setAction(e.target.value)}><option value="">Choose action</option>{verification ? mechanic?.isApproved ? <option value="revoke">Revoke manual approval</option> : <><option value="approve" disabled={!account?.isActive || !account.isVerified}>Approve by manual profile review</option>{mechanic?.accountApprovalStatus === 'pending' && <option value="reject">Reject application</option>}</> : <option value={account?.isActive ? 'suspend' : 'reactivate'}>{account?.isActive ? 'Suspend account' : 'Reactivate account'}</option>}</select></label>
+        <label className="block">Action <select required className={input} value={action} disabled={saving} onChange={e => setAction(e.target.value)}><option value="">Choose action</option>{verification ? mechanic?.isApproved ? <option value="revoke">Revoke manual approval</option> : <><option value="approve" disabled={!account?.isActive || !account.isVerified || !!mechanic?.documents.revision && mechanic.documents.status !== 'verified'}>Approve by manual profile review</option>{mechanic?.accountApprovalStatus === 'pending' && <option value="reject">Reject application</option>}</> : <option value={account?.isActive ? 'suspend' : 'reactivate'}>{account?.isActive ? 'Suspend account' : 'Reactivate account'}</option>}</select></label>
         <textarea aria-label="Audit reason" className={`${input} block w-full`} required minLength={3} maxLength={500} placeholder="Reason for this administrative decision" value={reason} disabled={saving} onChange={e => setReason(e.target.value)} />
         <p className="text-[#94A3B8] text-sm">Confirming applies the selected action to this account and creates a permanent audit record. Historical jobs and reviews remain.</p>
         <button className={button} disabled={saving || !action || reason.trim().length < 3}>{saving ? 'Saving...' : 'Confirm change'}</button>

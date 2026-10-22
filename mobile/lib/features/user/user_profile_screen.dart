@@ -1,3 +1,4 @@
+import '../../core/widgets/profile_avatar.dart';
 import 'package:flutter/material.dart';
 import '../../providers/profile_controller.dart';
 import '../../services/profile_service.dart';
@@ -209,30 +210,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
 
               // ── Avatar ───────────────────────────────────────────────────────
               Center(
-                child: Stack(
-                  children: [
-                    const CircleAvatar(
-                      radius: 52,
-                      backgroundColor: AppColors.darkPrimary,
-                      child: Icon(Icons.person, color: Colors.white, size: 52),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: AppColors.darkAccent,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.camera_alt,
-                            color: Colors.white, size: 14),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  child: ProfileAvatar(
+                      userId: _profile.user?['_id'] as String?,
+                      name: _profile.user?['name'] as String? ?? '',
+                      revision: objectMap(_profile.user?['photo'])['fileId'],
+                      onChanged: _profile.load)),
 
               const SizedBox(height: 16),
 

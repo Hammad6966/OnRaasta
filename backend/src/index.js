@@ -30,3 +30,6 @@ async function connectWithRetry(attempt = 1) {
   }
 }
 connectWithRetry();
+      const DocumentReview = require('./models/DocumentReview');
+      await DocumentReview.createCollection();
+      await DocumentReview.createIndexes();

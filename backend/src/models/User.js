@@ -33,6 +33,7 @@ const userSchema = new mongoose.Schema(
     },
     isVerified: { type: Boolean, default: false },
     isActive:   { type: Boolean, default: true  },
+    photo: { fileId: mongoose.Schema.Types.ObjectId, updatedAt: Date },
     vehicleIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle' }],
     emergencyContacts: [
       {

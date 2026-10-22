@@ -9,3 +9,6 @@ build/
 backend/firebase-service-account.json
 
 /admin/.v01-test-build/
+/.task-temp/
+/phase*-*.tmp
+/admin/.phase-test-build/

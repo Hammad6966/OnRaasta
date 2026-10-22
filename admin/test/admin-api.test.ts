@@ -18,6 +18,14 @@ test('protected requests send the current tab token and disable caching', async 
   const f = fixture(async (_url, init) => { options = init; return Response.json({ success: true, data: [] }); });
   await f.client.request('/users'); assert.equal((options?.headers as Record<string, string>).Authorization, `Bearer ${jwt()}`); assert.equal(options?.cache, 'no-store');
 });
+test('private previews use authorization and return binary blobs without public URLs', async () => {
+  let options: RequestInit | undefined;
+  const f = fixture(async (_url, init) => { options = init; return new Response(new Blob(['%PDF-1.7'], { type: 'application/pdf' })); });
+  const blob = await f.client.request<Blob>('/documents/example', {}, true);
+  assert.equal(await blob.text(), '%PDF-1.7');
+  assert.equal((options?.headers as Record<string, string>).Authorization, `Bearer ${jwt()}`);
+  assert.equal(options?.cache, 'no-store');
+});
 test('expired session clears tab credentials and requires login without making a request', async () => {
   let called = 0; const f = fixture(async () => { called++; return Response.json({}); });
   f.values.set('admin_token', jwt('admin', 1800000000));

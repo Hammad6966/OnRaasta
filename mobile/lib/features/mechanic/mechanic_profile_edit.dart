@@ -1,3 +1,4 @@
+import '../../core/widgets/profile_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -167,42 +168,23 @@ class _MechanicProfileEditScreenState extends State<MechanicProfileEditScreen> {
                                   : 'Pending approval',
                           style: const TextStyle(
                               color: AppColors.darkTextSecondary)),
-                    const Text('Document and photo uploads are deferred.',
-                        style: TextStyle(color: AppColors.darkTextSecondary)),
+                    ListTile(
+                        leading: const Icon(Icons.verified_user_outlined),
+                        title: const Text('Documents & Verification'),
+                        subtitle: Text(objectMap(_profile
+                                    .mechanicProfile?['verification'])['status']
+                                as String? ??
+                            'Not submitted'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/document-upload')),
                     // ── Avatar ────────────────────────────────────────────────
                     Center(
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 52,
-                            backgroundColor: AppColors.darkSurface,
-                            child: Text(
-                              _nameCtrl.text.isEmpty
-                                  ? '?'
-                                  : _nameCtrl.text[0].toUpperCase(),
-                              style: GoogleFonts.syne(
-                                  fontSize: 36,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.darkPrimary),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: AppColors.darkAccent,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(Icons.camera_alt,
-                                  color: Colors.white, size: 14),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                        child: ProfileAvatar(
+                            userId: _profile.user?['_id'] as String?,
+                            name: _profile.user?['name'] as String? ?? '',
+                            revision:
+                                objectMap(_profile.user?['photo'])['fileId'],
+                            onChanged: _profile.load)),
 
                     const SizedBox(height: 24),
 

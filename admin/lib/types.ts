@@ -8,7 +8,7 @@ export interface Mechanic {
   shopAddress?: string; isApproved: boolean; accountApprovalStatus: string; revision: number;
   createdAt?: string; updatedAt?: string;
   approval?: { method?: string; reason?: string; decidedAt?: string; decidedBy?: string };
-  documents: { status: string; evidenceAvailable: boolean; verificationAvailable: boolean };
+  documents: { status: string; evidenceAvailable: boolean; verificationAvailable: boolean; submittedKinds?: string[]; submittedAt?: string; revision?: number };
 }
 export interface AuditLog {
   _id: string; adminId: string; targetId: string; targetType: string; action: string;
