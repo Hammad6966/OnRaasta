@@ -12,6 +12,7 @@ import '../../core/widgets/assignment_state_banner.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/onraasta_button.dart';
 import '../../core/widgets/status_badge.dart';
+import '../shared/job_contact_actions.dart';
 
 // ── Step config ───────────────────────────────────────────────────────────────
 
@@ -258,27 +259,19 @@ class _ActiveJobScreenState extends State<ActiveJobScreen>
                             ],
                           ),
                           const Spacer(),
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: const Color(0x2622C55E),
-                              borderRadius: BorderRadius.circular(12),
-                              border:
-                                  Border.all(color: const Color(0x4D22C55E)),
-                            ),
-                            child: const Icon(
-                              Icons.phone,
-                              color: AppColors.darkSuccess,
-                              size: 20,
-                            ),
-                          ),
                         ],
                       ),
                     ),
                   ),
 
                   // ── Job details card ──────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: JobContactActions(
+                        booking: _booking,
+                        mechanic: true,
+                        enabled: _assignment.verified && !_assignment.loading),
+                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Container(

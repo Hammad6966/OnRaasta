@@ -9,6 +9,7 @@ import '../../models/booking_arguments.dart';
 import '../../providers/assignment_controller.dart';
 import '../../services/assignment_service.dart';
 import '../../core/widgets/assignment_state_banner.dart';
+import '../shared/job_contact_actions.dart';
 
 const _darkMapStyle = '''[
   {"elementType":"geometry","stylers":[{"color":"#050A14"}]},
@@ -391,6 +392,14 @@ class _JobInProgressScreenState extends State<JobInProgressScreen>
                           ]),
                         ]),
                   ]),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: JobContactActions(
+                      booking: _booking,
+                      mechanic: false,
+                      enabled: _assignment.verified && !_assignment.loading),
                 ),
 
                 // Bid details

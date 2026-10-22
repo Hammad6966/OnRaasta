@@ -12,6 +12,7 @@ import '../../services/job_location_service.dart';
 import '../../services/assignment_service.dart';
 import '../../services/socket_service.dart';
 import '../../core/widgets/assignment_state_banner.dart';
+import '../shared/job_contact_actions.dart';
 
 // ── Dark map style (same as M05) ──────────────────────────────────────────────
 
@@ -436,66 +437,10 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen>
                       fontFamily: 'Syne',
                       fontSize: 18)),
               const SizedBox(height: 12),
-              // Call / Message buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
-                        border: Border.all(color: AppColors.darkBorder),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.phone_rounded,
-                              color: AppColors.darkSuccess, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Call',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontFamily: 'DM Sans',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
-                        border: Border.all(color: AppColors.darkBorder),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.message_rounded,
-                              color: AppColors.darkPrimary, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Message',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontFamily: 'DM Sans',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              JobContactActions(
+                  booking: _booking,
+                  mechanic: false,
+                  enabled: _assignment.verified && !_assignment.loading),
 
               const SizedBox(height: 12),
 

@@ -130,7 +130,7 @@ function initSocket(server) {
     bind(socket, 'job:mechanic_location', (data, user) => tracking.publish(user, data, io));
     for (const event of ['job:created', 'job:new_request', 'bid:new', 'bid:accepted',
       'job:assigned', 'job:unavailable', 'bid:declined',
-      'job:status_changed', 'doc:status_update', 'mechanic:approval_changed']) {
+      'job:status_changed', 'doc:status_update', 'mechanic:approval_changed', 'chat:new']) {
       bind(socket, event, async () => { throw fail(403, 'Server-generated event only'); });
     }
     bind(socket, 'sos:triggered', async (data, user) => {

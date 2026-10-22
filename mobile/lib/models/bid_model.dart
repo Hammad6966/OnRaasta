@@ -15,6 +15,8 @@ class BidModel {
           objectId(mechanic['userId']) ?? objectId(json['mechanicUserId']),
       'mechanicName':
           textValue(user['name']) ?? textValue(json['mechanicName']),
+      'mechanicPhone':
+          textValue(user['phone']) ?? textValue(json['mechanicPhone']),
       for (final key in ['labourCost', 'partsCost', 'totalCost', 'eta'])
         key: finiteNumber(json[key]),
       for (final key in ['rating', 'totalJobs', 'reviewCount', 'lat', 'lng'])
@@ -38,6 +40,7 @@ class BidModel {
   String? get mechanicUserId => textValue(_data['mechanicUserId']);
   String get mechanicName =>
       textValue(_data['mechanicName']) ?? 'Name unavailable';
+  String? get mechanicPhone => textValue(_data['mechanicPhone']);
   double? get labourCost => finiteNumber(_data['labourCost']);
   double? get partsCost => finiteNumber(_data['partsCost']);
   double? get totalCost => finiteNumber(_data['totalCost']);

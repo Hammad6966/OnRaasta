@@ -158,7 +158,7 @@ test('job rooms admit owner/winner/admin and reject competitors before and after
 });
 test('new assignment event names cannot be forged by clients',async()=>{
   const c=await connect(ids.mechanicUser);
-  for(const event of ['job:assigned','job:unavailable','bid:declined','bid:accepted']) assert.equal((await c.emit(event,{jobId:ids.job})).status,403);
+  for(const event of ['job:assigned','job:unavailable','bid:declined','bid:accepted','chat:new']) assert.equal((await c.emit(event,{jobId:ids.job})).status,403);
 });
 test('disconnected winner recovers through API on startup and authorized room join after reconnect',async()=>{
   seed();await accept();

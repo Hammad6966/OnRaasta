@@ -15,6 +15,8 @@ router.get('/', verifyToken, verifyRole('user'), listJobs);
 router.get('/assignments', verifyToken, verifyRole('user', 'mechanic'), listAssignments);
 router.get('/:id/recommendations', verifyToken, verifyRole('user'), v.id, require('../services/recommendation.service').recommend);
 router.get('/:id/assignment', verifyToken, v.id, getAssignment);
+router.get('/:id/messages', verifyToken, verifyRole('user', 'mechanic'), v.id, require('../services/chat.service').list);
+router.post('/:id/messages', verifyToken, verifyRole('user', 'mechanic'), v.id, require('../services/chat.service').send);
 router.get('/:id/location', verifyToken, v.id, require('../services/job-tracking.service').latest);
 router.get('/:id/opportunity', verifyToken, verifyRole('mechanic'), v.id, opportunity);
 
